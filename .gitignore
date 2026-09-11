@@ -6,6 +6,11 @@ __pycache__/
 .venv/
 venv/
 
+# Artefatos de empacotamento
+*.egg-info/
+build/
+dist/
+
 # Músicas adicionadas pelo usuário
 music/*
 !music/.gitkeep

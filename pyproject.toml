@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "music-player-cli"
 version = "1.0.0"
@@ -5,3 +9,10 @@ description = "Player e downloader de musicas para linha de comando."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
+
+[project.scripts]
+music-player = "player:main"
+music-download = "downloader:main"
+
+[tool.setuptools]
+py-modules = ["player", "downloader"]

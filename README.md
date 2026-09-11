@@ -35,13 +35,47 @@ Não é necessário instalar `yt-dlp` pelo Ubuntu ou pelo `pip`. O projeto usa
 sua própria cópia atualizada, localizada em `.tools/yt-dlp`, evitando conflitos
 com versões antigas instaladas no sistema.
 
-## Reproduzir músicas
+## Instalar os comandos
 
-Coloque seus arquivos de áudio dentro da pasta `music` e execute:
+Na pasta do projeto, faça a instalação editável usando o ambiente Python em que
+os comandos devem ficar disponíveis:
 
 ```bash
-python3 player.py
+python3 -m pip install --editable .
 ```
+
+A instalação editável mantém os comandos ligados a esta pasta, permitindo que
+eles encontrem a biblioteca `music` e a cópia local do `yt-dlp`. Depois disso,
+o player pode ser iniciado de qualquer diretório com:
+
+```bash
+music-player
+```
+
+Para baixar um áudio, execute:
+
+```bash
+music-download "https://www.youtube.com/watch?v=ID_DO_VIDEO"
+```
+
+Se a pasta do projeto for movida, execute novamente a instalação editável no
+novo local. Os comandos antigos podem ser removidos com:
+
+```bash
+python3 -m pip uninstall music-player-cli
+```
+
+## Reproduzir músicas
+
+Coloque seus arquivos de áudio dentro da pasta `music` e execute o comando
+instalado:
+
+```bash
+music-player
+```
+
+Sem instalar o comando, também é possível usar `python3 player.py` a partir da
+pasta do projeto.
 
 Formatos aceitos: MP3, WAV, OGG, FLAC e M4A.
 
@@ -67,17 +101,20 @@ erro, sem deixar arquivos temporários ou processos de reprodução abertos.
 
 ## Baixar áudio do YouTube
 
-Execute o downloader e cole o link quando solicitado:
+Execute o comando instalado e cole o link quando solicitado:
 
 ```bash
-python3 downloader.py
+music-download
 ```
 
 Também é possível passar o link diretamente no comando:
 
 ```bash
-python3 downloader.py "https://www.youtube.com/watch?v=ID_DO_VIDEO"
+music-download "https://www.youtube.com/watch?v=ID_DO_VIDEO"
 ```
+
+Sem instalar o comando, as formas equivalentes são `python3 downloader.py` e
+`python3 downloader.py "LINK"` a partir da pasta do projeto.
 
 O programa aceita links `youtube.com` e `youtu.be`, seleciona o áudio de melhor
 qualidade disponível e o converte para MP3. Os arquivos são salvos na pasta
