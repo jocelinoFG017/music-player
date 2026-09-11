@@ -57,6 +57,10 @@ Durante a reprodução:
 Ao terminar a última música, a reprodução volta automaticamente para a
 primeira. Ao sair, a tela é limpa antes de retornar à seleção de músicas.
 
+Se o `mpv` não estiver instalado, não puder ser iniciado ou encerrar com erro,
+o player informa o problema no terminal e termina com um código de saída de
+erro, sem deixar arquivos temporários ou processos de reprodução abertos.
+
 ## Baixar áudio do YouTube
 
 Execute o downloader e cole o link quando solicitado:
