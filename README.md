@@ -108,3 +108,12 @@ O `downloader.py` não utiliza o `yt-dlp` antigo fornecido pelo Ubuntu. Todos os
 downloads e a ferramenta atualizada permanecem dentro da pasta do projeto.
 
 Use o downloader apenas para conteúdos que você tem autorização para baixar.
+
+## Executar os testes
+
+Os testes usam apenas a biblioteca padrão do Python e não reproduzem áudio nem
+fazem downloads. Execute a suíte completa com:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
