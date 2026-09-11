@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import player
 
@@ -96,6 +96,59 @@ class TestListaDuranteReproducao(unittest.TestCase):
             self.assertTrue(player.consumir_pedido_de_lista(str(pedido)))
             self.assertFalse(pedido.exists())
             self.assertFalse(player.consumir_pedido_de_lista(str(pedido)))
+
+
+class TestModoAleatorio(unittest.TestCase):
+    def test_reordena_playlist_ao_ligar_e_restaura_ao_desligar(self):
+        musicas = ["primeira.mp3", "segunda.mp3"]
+        embaralhadas = ["segunda.mp3", "primeira.mp3"]
+
+        with (
+            patch.object(
+                player,
+                "enviar_comando_mpv",
+                return_value=True,
+            ) as enviar,
+            patch.object(
+                player,
+                "obter_musicas_da_playlist",
+                side_effect=[embaralhadas, musicas],
+            ),
+        ):
+            resultado_ligado = player.reordenar_playlist(
+                "/tmp/mpv.sock",
+                True,
+                musicas,
+            )
+            resultado_desligado = player.reordenar_playlist(
+                "/tmp/mpv.sock",
+                False,
+                embaralhadas,
+            )
+
+        self.assertEqual(resultado_ligado, embaralhadas)
+        self.assertEqual(resultado_desligado, musicas)
+        self.assertEqual(
+            enviar.call_args_list,
+            [
+                call("/tmp/mpv.sock", ["playlist-shuffle"]),
+                call("/tmp/mpv.sock", ["playlist-unshuffle"]),
+            ],
+        )
+
+    def test_sincroniza_nomes_com_a_ordem_do_mpv(self):
+        playlist = [
+            {"filename": "/musicas/segunda.flac"},
+            {"filename": "/musicas/primeira.mp3"},
+        ]
+
+        with patch.object(player, "consultar_mpv", return_value=playlist):
+            musicas = player.obter_musicas_da_playlist(
+                "/tmp/mpv.sock",
+                ["primeira.mp3", "segunda.flac"],
+            )
+
+        self.assertEqual(musicas, ["segunda.flac", "primeira.mp3"])
 
 
 class TestComandoMpv(unittest.TestCase):
