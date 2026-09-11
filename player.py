@@ -142,24 +142,42 @@ def obter_dimensoes_terminal():
     return largura, altura
 
 
-def formatar_controles(aleatorio, lista_visivel=False, largura=100):
-    estado = "ligado" if aleatorio else "desligado"
-    if largura < 48:
-        estado_curto = "on" if aleatorio else "off"
+def formatar_controles(
+    aleatorio,
+    lista_visivel=False,
+    largura=100,
+    replay=False,
+):
+    estado_aleatorio = "ligado" if aleatorio else "desligado"
+    estado_replay = "ligado" if replay else "desligado"
+    if largura < 72:
+        aleatorio_curto = "on" if aleatorio else "off"
+        replay_curto = "on" if replay else "off"
         texto = (
-            f"N/B S:{estado_curto} Pg↑/Pg↓ L Q"
+            f"N/B S:{aleatorio_curto} R:{replay_curto} ↑/↓ L Q"
             if lista_visivel
-            else f"P N/B S:{estado_curto} L Q"
+            else f"P N/B S:{aleatorio_curto} R:{replay_curto} L Q"
+        )
+    elif largura < 105:
+        aleatorio_curto = "on" if aleatorio else "off"
+        replay_curto = "on" if replay else "off"
+        texto = (
+            f"[N/B] [S] aleat:{aleatorio_curto} [R] replay:{replay_curto} "
+            "[Pg↑/↓] pág. [L] voltar [Q] sair"
+            if lista_visivel
+            else f"[P] pausa [N/B] faixa [S] aleat:{aleatorio_curto} "
+            f"[R] replay:{replay_curto} [L] biblioteca [Q] sair"
         )
     elif lista_visivel:
         texto = (
-            f"[N/B] faixa  [S] aleatório: {estado}  "
-            "[PgUp/PgDn] páginas  [L] voltar  [Q] sair"
+            f"[N/B] faixa  [S] aleatório: {estado_aleatorio}  "
+            f"[R] replay: {estado_replay}  [PgUp/PgDn] páginas  "
+            "[L] voltar  [Q] sair"
         )
     else:
         texto = (
-            f"[P] pausa  [N/B] faixa  [S] aleatório: {estado}  "
-            "[L] biblioteca  [Q] sair"
+            f"[P] pausa  [N/B] faixa  [S] aleatório: {estado_aleatorio}  "
+            f"[R] replay: {estado_replay}  [L] biblioteca  [Q] sair"
         )
     return ajustar_texto(texto, largura).rstrip()
 
@@ -188,13 +206,27 @@ def formatar_progresso(tempo_atual, duracao, largura):
     return ajustar_texto(f" {atual} {barra} {total}", largura)
 
 
-def exibir_painel_reproducao(nome, tempo_atual, duracao, aleatorio, largura):
+def exibir_painel_reproducao(
+    nome,
+    tempo_atual,
+    duracao,
+    aleatorio,
+    largura,
+    replay=False,
+):
     interior = largura - 2
     print(criar_borda("TOCANDO AGORA", largura))
     print(f"│{ajustar_texto(f'  ♫  {nome}', interior)}│")
     print(f"│{formatar_progresso(tempo_atual, duracao, interior)}│")
     print(criar_borda("", largura, superior=False))
-    print(formatar_controles(aleatorio, largura=largura), flush=True)
+    print(
+        formatar_controles(
+            aleatorio,
+            largura=largura,
+            replay=replay,
+        ),
+        flush=True,
+    )
 
 
 def calcular_paginacao(total, pagina, altura):
@@ -212,6 +244,7 @@ def exibir_lista_reproducao(
     aleatorio,
     pagina=0,
     dimensoes=None,
+    replay=False,
 ):
     largura, altura = dimensoes or obter_dimensoes_terminal()
     pagina, total_paginas, inicio, fim = calcular_paginacao(
@@ -239,6 +272,7 @@ def exibir_lista_reproducao(
             aleatorio,
             lista_visivel=True,
             largura=largura,
+            replay=replay,
         ),
         flush=True,
     )
@@ -255,10 +289,15 @@ def consumir_pedido(caminho_pedido):
         return False
 
 
+def replay_esta_ativo(valor):
+    return valor not in (None, False, 0, "no")
+
+
 def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
     posicao_anterior = None
     status_anterior = None
     aleatorio_anterior = None
+    replay_anterior = None
     lista_visivel = False
     pagina_lista = 0
     dimensoes_anteriores = None
@@ -273,6 +312,10 @@ def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
         aleatorio = consultar_mpv(socket_path, "shuffle")
         if aleatorio is None and aleatorio_anterior is not None:
             aleatorio = aleatorio_anterior
+        replay = consultar_mpv(socket_path, "loop-file")
+        if replay is None and replay_anterior is not None:
+            replay = replay_anterior
+        replay = replay_esta_ativo(replay)
         alternou_lista = consumir_pedido(caminhos_pedidos["lista"])
         pagina_anterior = consumir_pedido(
             caminhos_pedidos["pagina_anterior"],
@@ -289,6 +332,7 @@ def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
 
         mudou_musica = posicao is not None and posicao != posicao_anterior
         mudou_aleatorio = aleatorio != aleatorio_anterior
+        mudou_replay = replay != replay_anterior
 
         if lista_visivel:
             itens_por_pagina = max(3, dimensoes[1] - 5)
@@ -305,6 +349,7 @@ def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
                 alternou_lista
                 or mudou_musica
                 or mudou_aleatorio
+                or mudou_replay
                 or pagina_anterior
                 or proxima_pagina
                 or mudou_dimensoes
@@ -316,9 +361,11 @@ def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
                     aleatorio,
                     pagina=pagina_lista,
                     dimensoes=dimensoes,
+                    replay=replay,
                 )
                 posicao_anterior = posicao
                 aleatorio_anterior = aleatorio
+                replay_anterior = replay
             time.sleep(0.2)
             continue
 
@@ -336,6 +383,7 @@ def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
                 duracao,
                 aleatorio,
                 dimensoes[0],
+                replay=replay,
             )
             status_anterior = formatar_progresso(
                 tempo_atual,
@@ -343,16 +391,22 @@ def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
                 dimensoes[0] - 2,
             )
             posicao_anterior = posicao
+            replay_anterior = replay
             renderizou_painel = True
 
         if (
-            mudou_aleatorio
+            (mudou_aleatorio or mudou_replay)
             and posicao_anterior is not None
             and not renderizou_painel
         ):
-            controles = formatar_controles(aleatorio, largura=dimensoes[0])
+            controles = formatar_controles(
+                aleatorio,
+                largura=dimensoes[0],
+                replay=replay,
+            )
             print(f"\033[1A\r\033[K{controles}\033[K\n", end="", flush=True)
             aleatorio_anterior = aleatorio
+            replay_anterior = replay
 
         status = formatar_progresso(
             tempo_atual,
@@ -421,6 +475,8 @@ def tocar_musicas(musicas, indice_inicial):
         "P cycle pause",
         "s cycle shuffle",
         "S cycle shuffle",
+        "r cycle-values loop-file inf no",
+        "R cycle-values loop-file inf no",
         f'l run "{comando_touch}" "{caminhos_pedidos["lista"]}"',
         f'L run "{comando_touch}" "{caminhos_pedidos["lista"]}"',
         (

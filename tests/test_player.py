@@ -140,6 +140,23 @@ class TestListaDuranteReproducao(unittest.TestCase):
         self.assertEqual(player.largura_visual(borda), 30)
         self.assertLessEqual(player.largura_visual(controles), 30)
 
+    def test_controles_exibem_estado_do_replay(self):
+        controles = player.formatar_controles(
+            False,
+            largura=100,
+            replay=True,
+        )
+
+        self.assertIn("[R] replay:on", controles)
+
+
+class TestReplay(unittest.TestCase):
+    def test_identifica_replay_ativo_do_mpv(self):
+        self.assertTrue(player.replay_esta_ativo("inf"))
+        self.assertTrue(player.replay_esta_ativo(True))
+        self.assertFalse(player.replay_esta_ativo("no"))
+        self.assertFalse(player.replay_esta_ativo(None))
+
 
 class TestModoAleatorio(unittest.TestCase):
     def test_script_sorteia_indice_diferente_para_n_e_b(self):
@@ -249,6 +266,8 @@ class TestComandoMpv(unittest.TestCase):
                 "P cycle pause",
                 "s cycle shuffle",
                 "S cycle shuffle",
+                "r cycle-values loop-file inf no",
+                "R cycle-values loop-file inf no",
                 f'l run "/usr/bin/touch" "{caminhos_pedidos["lista"]}"',
                 f'L run "/usr/bin/touch" "{caminhos_pedidos["lista"]}"',
                 (
