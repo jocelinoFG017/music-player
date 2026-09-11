@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import player
 
@@ -73,6 +73,34 @@ class TestMenu(unittest.TestCase):
         self.assertIn("Opção inválida.", saida.getvalue())
         self.assertIn("Música inválida.", saida.getvalue())
         tocar_musicas.assert_not_called()
+
+    def test_atualiza_biblioteca_ao_retornar_ao_menu(self):
+        with tempfile.TemporaryDirectory() as diretorio:
+            pasta = Path(diretorio)
+            (pasta / "01-primeira.mp3").touch()
+
+            def reproduzir(musicas, indice):
+                (pasta / "02-nova.mp3").touch()
+                return 0
+
+            with (
+                patch.object(player, "PASTA_MUSICAS", diretorio),
+                patch.object(player.shutil, "which", return_value="/usr/bin/mpv"),
+                patch.object(player, "exibir_menu") as exibir_menu,
+                patch.object(player, "tocar_musicas", side_effect=reproduzir),
+                patch.object(player, "limpar_tela"),
+                patch("builtins.input", side_effect=["1", "0"]),
+            ):
+                codigo_saida = player.main()
+
+        self.assertEqual(codigo_saida, 0)
+        self.assertEqual(
+            exibir_menu.call_args_list,
+            [
+                call(["01-primeira.mp3"]),
+                call(["01-primeira.mp3", "02-nova.mp3"]),
+            ],
+        )
 
 
 class TestComandoMpv(unittest.TestCase):

@@ -56,6 +56,8 @@ Durante a reprodução:
 
 Ao terminar a última música, a reprodução volta automaticamente para a
 primeira. Ao sair, a tela é limpa antes de retornar à seleção de músicas.
+Sempre que o menu é exibido novamente, a pasta `music` é lida outra vez para
+mostrar arquivos adicionados ou removidos durante a execução do programa.
 
 Se o `mpv` não estiver instalado, não puder ser iniciado ou encerrar com erro,
 o player informa o problema no terminal e termina com um código de saída de

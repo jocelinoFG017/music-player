@@ -265,24 +265,27 @@ def main():
         print("A pasta 'music' não foi encontrada.", file=sys.stderr)
         return 1
 
-    try:
-        musicas = listar_musicas()
-    except OSError as erro:
-        print(f"Não foi possível ler a pasta 'music': {erro}", file=sys.stderr)
-        return 1
-
-    if not musicas:
-        print("Nenhuma música encontrada.")
-        return 0
-
-    if shutil.which("mpv") is None:
-        print(
-            "O mpv não foi encontrado. Instale-o antes de continuar.",
-            file=sys.stderr,
-        )
-        return 1
-
     while True:
+        try:
+            musicas = listar_musicas()
+        except OSError as erro:
+            print(
+                f"Não foi possível ler a pasta 'music': {erro}",
+                file=sys.stderr,
+            )
+            return 1
+
+        if not musicas:
+            print("Nenhuma música encontrada.")
+            return 0
+
+        if shutil.which("mpv") is None:
+            print(
+                "O mpv não foi encontrado. Instale-o antes de continuar.",
+                file=sys.stderr,
+            )
+            return 1
+
         exibir_menu(musicas)
 
         try:
