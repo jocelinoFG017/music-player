@@ -16,6 +16,44 @@ ATALHOS = (
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PASTA_MUSICAS = os.path.join(BASE_DIR, "music")
 
+SCRIPT_NAVEGACAO = r'''
+local mp = require "mp"
+
+math.randomseed(os.time() + math.floor(mp.get_time() * 1000000))
+
+local function navegar(comando_sequencial)
+    if not mp.get_property_native("shuffle", false) then
+        mp.commandv(comando_sequencial)
+        return
+    end
+
+    local total = mp.get_property_number("playlist-count", 0)
+    local atual = mp.get_property_number("playlist-pos", 0)
+    if total <= 1 then
+        return
+    end
+
+    local destino = math.random(0, total - 2)
+    if destino >= atual then
+        destino = destino + 1
+    end
+    mp.set_property_number("playlist-pos", destino)
+end
+
+mp.add_forced_key_binding("n", "music-player-next", function()
+    navegar("playlist-next")
+end)
+mp.add_forced_key_binding("N", "music-player-next-upper", function()
+    navegar("playlist-next")
+end)
+mp.add_forced_key_binding("b", "music-player-prev", function()
+    navegar("playlist-prev")
+end)
+mp.add_forced_key_binding("B", "music-player-prev-upper", function()
+    navegar("playlist-prev")
+end)
+'''.strip()
+
 
 def limpar_tela():
     if not sys.stdout.isatty():
@@ -64,40 +102,6 @@ def consultar_mpv(socket_path, propriedade):
         return None
 
 
-def enviar_comando_mpv(socket_path, comando):
-    try:
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conexao:
-            conexao.settimeout(0.2)
-            conexao.connect(socket_path)
-            mensagem = json.dumps({"command": comando}).encode() + b"\n"
-            conexao.sendall(mensagem)
-            resposta = conexao.recv(4096)
-            return json.loads(resposta.decode()).get("error") == "success"
-    except (ConnectionError, OSError, json.JSONDecodeError):
-        return False
-
-
-def obter_musicas_da_playlist(socket_path, musicas_atuais):
-    playlist = consultar_mpv(socket_path, "playlist")
-    if not isinstance(playlist, list):
-        return musicas_atuais
-
-    musicas = []
-    for item in playlist:
-        if not isinstance(item, dict) or not item.get("filename"):
-            return musicas_atuais
-        musicas.append(os.path.basename(item["filename"]))
-
-    return musicas or musicas_atuais
-
-
-def reordenar_playlist(socket_path, aleatorio, musicas_atuais):
-    comando = ["playlist-shuffle"] if aleatorio else ["playlist-unshuffle"]
-    if not enviar_comando_mpv(socket_path, comando):
-        return musicas_atuais
-    return obter_musicas_da_playlist(socket_path, musicas_atuais)
-
-
 def formatar_controles(aleatorio, lista_visivel=False):
     estado = "ligado" if aleatorio else "desligado"
     acao_lista = "voltar" if lista_visivel else "listar"
@@ -126,7 +130,6 @@ def consumir_pedido_de_lista(caminho_pedido):
 
 
 def exibir_reproducao(socket_path, musicas, processo, caminho_pedido_lista):
-    playlist_atual = list(musicas)
     posicao_anterior = None
     status_anterior = None
     aleatorio_anterior = None
@@ -140,30 +143,6 @@ def exibir_reproducao(socket_path, musicas, processo, caminho_pedido_lista):
         if aleatorio is None and aleatorio_anterior is not None:
             aleatorio = aleatorio_anterior
         alternou_lista = consumir_pedido_de_lista(caminho_pedido_lista)
-
-        primeira_leitura = (
-            posicao is not None
-            and posicao_anterior is None
-            and aleatorio_anterior is None
-        )
-        if primeira_leitura:
-            playlist_atual = obter_musicas_da_playlist(
-                socket_path,
-                playlist_atual,
-            )
-
-        alternou_aleatorio = (
-            aleatorio_anterior is not None
-            and aleatorio != aleatorio_anterior
-        )
-        if alternou_aleatorio:
-            playlist_atual = reordenar_playlist(
-                socket_path,
-                aleatorio,
-                playlist_atual,
-            )
-            posicao = consultar_mpv(socket_path, "playlist-pos")
-            posicao_anterior = None
 
         if alternou_lista:
             lista_visivel = not lista_visivel
@@ -180,7 +159,7 @@ def exibir_reproducao(socket_path, musicas, processo, caminho_pedido_lista):
             ):
                 limpar_tela()
                 exibir_lista_reproducao(
-                    playlist_atual,
+                    musicas,
                     int(posicao),
                     aleatorio,
                 )
@@ -191,7 +170,7 @@ def exibir_reproducao(socket_path, musicas, processo, caminho_pedido_lista):
 
         if posicao is not None and (mudou_musica or alternou_lista):
             indice = int(posicao)
-            nome = os.path.splitext(playlist_atual[indice])[0]
+            nome = os.path.splitext(musicas[indice])[0]
             status_anterior = None
             aleatorio_anterior = aleatorio
             limpar_tela()
@@ -255,10 +234,6 @@ def tocar_musicas(musicas, indice_inicial):
     comandos = "\n".join([
         "p cycle pause",
         "P cycle pause",
-        "n playlist-next",
-        "N playlist-next",
-        "b playlist-prev",
-        "B playlist-prev",
         "s cycle shuffle",
         "S cycle shuffle",
         f'l run "{comando_touch}" "{caminho_pedido_lista}"',
@@ -268,6 +243,7 @@ def tocar_musicas(musicas, indice_inicial):
     ])
 
     arquivo_comandos = None
+    arquivo_script = None
     processo = None
     try:
         arquivo_comandos = tempfile.NamedTemporaryFile(
@@ -277,6 +253,14 @@ def tocar_musicas(musicas, indice_inicial):
         )
         arquivo_comandos.write(comandos)
         arquivo_comandos.close()
+
+        arquivo_script = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".lua",
+            delete=False,
+        )
+        arquivo_script.write(SCRIPT_NAVEGACAO)
+        arquivo_script.close()
 
         try:
             processo = subprocess.Popen([
@@ -288,6 +272,7 @@ def tocar_musicas(musicas, indice_inicial):
                 "--loop-playlist=inf",
                 f"--playlist-start={indice_inicial}",
                 f"--input-conf={arquivo_comandos.name}",
+                f"--script={arquivo_script.name}",
                 f"--input-ipc-server={socket_path}",
                 *playlist,
             ])
@@ -365,6 +350,16 @@ def tocar_musicas(musicas, indice_inicial):
         if arquivo_comandos is not None:
             try:
                 os.unlink(arquivo_comandos.name)
+            except FileNotFoundError:
+                pass
+        if arquivo_script is not None and not arquivo_script.closed:
+            try:
+                arquivo_script.close()
+            except OSError:
+                pass
+        if arquivo_script is not None:
+            try:
+                os.unlink(arquivo_script.name)
             except FileNotFoundError:
                 pass
         if os.path.exists(socket_path):

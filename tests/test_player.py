@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import player
 
@@ -99,56 +99,23 @@ class TestListaDuranteReproducao(unittest.TestCase):
 
 
 class TestModoAleatorio(unittest.TestCase):
-    def test_reordena_playlist_ao_ligar_e_restaura_ao_desligar(self):
-        musicas = ["primeira.mp3", "segunda.mp3"]
-        embaralhadas = ["segunda.mp3", "primeira.mp3"]
+    def test_script_sorteia_indice_diferente_para_n_e_b(self):
+        script = player.SCRIPT_NAVEGACAO
 
-        with (
-            patch.object(
-                player,
-                "enviar_comando_mpv",
-                return_value=True,
-            ) as enviar,
-            patch.object(
-                player,
-                "obter_musicas_da_playlist",
-                side_effect=[embaralhadas, musicas],
-            ),
-        ):
-            resultado_ligado = player.reordenar_playlist(
-                "/tmp/mpv.sock",
-                True,
-                musicas,
-            )
-            resultado_desligado = player.reordenar_playlist(
-                "/tmp/mpv.sock",
-                False,
-                embaralhadas,
-            )
+        self.assertIn('get_property_native("shuffle", false)', script)
+        self.assertIn("math.random(0, total - 2)", script)
+        self.assertIn("if destino >= atual then", script)
+        self.assertIn('set_property_number("playlist-pos", destino)', script)
+        self.assertIn('add_forced_key_binding("n"', script)
+        self.assertIn('add_forced_key_binding("b"', script)
 
-        self.assertEqual(resultado_ligado, embaralhadas)
-        self.assertEqual(resultado_desligado, musicas)
-        self.assertEqual(
-            enviar.call_args_list,
-            [
-                call("/tmp/mpv.sock", ["playlist-shuffle"]),
-                call("/tmp/mpv.sock", ["playlist-unshuffle"]),
-            ],
-        )
+    def test_script_mantem_navegacao_sequencial_com_aleatorio_desligado(self):
+        script = player.SCRIPT_NAVEGACAO
 
-    def test_sincroniza_nomes_com_a_ordem_do_mpv(self):
-        playlist = [
-            {"filename": "/musicas/segunda.flac"},
-            {"filename": "/musicas/primeira.mp3"},
-        ]
-
-        with patch.object(player, "consultar_mpv", return_value=playlist):
-            musicas = player.obter_musicas_da_playlist(
-                "/tmp/mpv.sock",
-                ["primeira.mp3", "segunda.flac"],
-            )
-
-        self.assertEqual(musicas, ["segunda.flac", "primeira.mp3"])
+        self.assertIn("if not mp.get_property_native", script)
+        self.assertIn("mp.commandv(comando_sequencial)", script)
+        self.assertIn('navegar("playlist-next")', script)
+        self.assertIn('navegar("playlist-prev")', script)
 
 
 class TestComandoMpv(unittest.TestCase):
@@ -175,8 +142,14 @@ class TestComandoMpv(unittest.TestCase):
                     for item in comando
                     if item.startswith("--input-ipc-server=")
                 )
+                caminho_script = next(
+                    item.split("=", 1)[1]
+                    for item in comando
+                    if item.startswith("--script=")
+                )
                 chamada["socket"] = caminho_socket
                 chamada["atalhos"] = Path(caminho_config).read_text()
+                chamada["script"] = Path(caminho_script).read_text()
                 Path(caminho_socket).touch()
                 return processo
 
@@ -205,6 +178,7 @@ class TestComandoMpv(unittest.TestCase):
         self.assertIn("--audio-display=no", comando)
         self.assertIn("--loop-playlist=inf", comando)
         self.assertIn("--playlist-start=1", comando)
+        self.assertTrue(any(item.startswith("--script=") for item in comando))
         self.assertEqual(
             comando[-2:],
             [
@@ -217,10 +191,6 @@ class TestComandoMpv(unittest.TestCase):
             [
                 "p cycle pause",
                 "P cycle pause",
-                "n playlist-next",
-                "N playlist-next",
-                "b playlist-prev",
-                "B playlist-prev",
                 "s cycle shuffle",
                 "S cycle shuffle",
                 f'l run "/usr/bin/touch" "{caminho_pedido}"',
@@ -229,6 +199,7 @@ class TestComandoMpv(unittest.TestCase):
                 "Q quit",
             ],
         )
+        self.assertEqual(chamada["script"], player.SCRIPT_NAVEGACAO)
         exibir_reproducao.assert_called_once_with(
             caminho_socket,
             ["primeira.mp3", "segunda.flac"],

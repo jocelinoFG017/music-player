@@ -93,16 +93,16 @@ A pasta é mantida no projeto por meio do arquivo `music/.gitkeep`.
 Durante a reprodução:
 
 - `[P]`: pausar ou continuar
-- `[N]`: próxima música
-- `[B]`: música anterior
-- `[S]`: ativar ou desativar o modo aleatório, reorganizando a fila
+- `[N]`: próxima música ou uma música aleatória, conforme o modo ativo
+- `[B]`: música anterior ou uma música aleatória, conforme o modo ativo
+- `[S]`: ativar ou desativar o modo aleatório
 - `[L]`: listar as músicas; pressione novamente para voltar à reprodução
 - `[Q]`: sair da reprodução
 
 Ao terminar a última música, a reprodução volta automaticamente para a
 primeira. Ao abrir a lista com `[L]`, a música atual é indicada pelo marcador
-`>`. Com o modo aleatório ligado, `[N]` avança pela ordem embaralhada e `[B]`
-volta pelo mesmo histórico. Ao sair, o comando é encerrado.
+`>`. Com o modo aleatório ligado, cada acionamento de `[N]` ou `[B]` sorteia
+uma música diferente da atual. Ao sair, o comando é encerrado.
 
 Se o `mpv` não estiver instalado, não puder ser iniciado ou encerrar com erro,
 o player informa o problema no terminal e termina com um código de saída de
