@@ -37,6 +37,9 @@ com versões antigas instaladas no sistema.
 
 ## Instalar os comandos
 
+Consulte o [guia de instalação para Linux e Windows](instrucoes_rodar_player.md)
+para um passo a passo completo.
+
 Na pasta do projeto, faça a instalação editável usando o ambiente Python em que
 os comandos devem ficar disponíveis:
 
