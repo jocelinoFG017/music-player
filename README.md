@@ -84,6 +84,9 @@ pasta do projeto.
 
 Formatos aceitos: MP3, WAV, OGG, FLAC e M4A.
 
+Ao iniciar, o player toca imediatamente a primeira música da biblioteca em
+ordem alfabética, sem exibir uma tela de seleção.
+
 Os arquivos colocados em `music` são locais e não são versionados pelo Git.
 A pasta é mantida no projeto por meio do arquivo `music/.gitkeep`.
 
@@ -93,12 +96,12 @@ Durante a reprodução:
 - `[N]`: próxima música
 - `[B]`: música anterior
 - `[S]`: ativar ou desativar o modo aleatório
+- `[L]`: listar as músicas; pressione novamente para voltar à reprodução
 - `[Q]`: sair da reprodução
 
 Ao terminar a última música, a reprodução volta automaticamente para a
-primeira. Ao sair, a tela é limpa antes de retornar à seleção de músicas.
-Sempre que o menu é exibido novamente, a pasta `music` é lida outra vez para
-mostrar arquivos adicionados ou removidos durante a execução do programa.
+primeira. Ao abrir a lista com `[L]`, a música atual é indicada pelo marcador
+`>`. Ao sair, o comando é encerrado.
 
 Se o `mpv` não estiver instalado, não puder ser iniciado ou encerrar com erro,
 o player informa o problema no terminal e termina com um código de saída de

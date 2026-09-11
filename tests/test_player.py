@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import player
 
@@ -54,53 +54,48 @@ class TestListarMusicas(unittest.TestCase):
         )
 
 
-class TestMenu(unittest.TestCase):
-    def test_rejeita_texto_e_numero_fora_da_lista(self):
-        saida = io.StringIO()
+class TestInicializacao(unittest.TestCase):
+    def test_inicia_primeira_musica_sem_pedir_escolha(self):
+        musicas = ["01-primeira.mp3", "02-segunda.mp3"]
 
         with (
-            patch.object(player, "listar_musicas", return_value=["musica.mp3"]),
+            patch.object(player, "listar_musicas", return_value=musicas),
             patch.object(player.os.path, "isdir", return_value=True),
             patch.object(player.shutil, "which", return_value="/usr/bin/mpv"),
-            patch.object(player, "exibir_menu"),
-            patch("builtins.input", side_effect=["abc", "2", "0"]),
-            patch.object(player, "tocar_musicas") as tocar_musicas,
-            redirect_stdout(saida),
+            patch.object(player, "tocar_musicas", return_value=0) as tocar,
+            patch("builtins.input") as entrada,
         ):
             codigo_saida = player.main()
 
         self.assertEqual(codigo_saida, 0)
-        self.assertIn("Opção inválida.", saida.getvalue())
-        self.assertIn("Música inválida.", saida.getvalue())
-        tocar_musicas.assert_not_called()
+        tocar.assert_called_once_with(musicas, 0)
+        entrada.assert_not_called()
 
-    def test_atualiza_biblioteca_ao_retornar_ao_menu(self):
+
+class TestListaDuranteReproducao(unittest.TestCase):
+    def test_exibe_lista_e_destaca_musica_atual(self):
+        saida = io.StringIO()
+
+        with redirect_stdout(saida):
+            player.exibir_lista_reproducao(
+                ["primeira.mp3", "segunda.flac"],
+                1,
+                False,
+            )
+
+        texto = saida.getvalue()
+        self.assertIn("  1. primeira", texto)
+        self.assertIn("> 2. segunda", texto)
+        self.assertIn("[L] voltar", texto)
+
+    def test_consumir_pedido_remove_arquivo(self):
         with tempfile.TemporaryDirectory() as diretorio:
-            pasta = Path(diretorio)
-            (pasta / "01-primeira.mp3").touch()
+            pedido = Path(diretorio) / "listar"
+            pedido.touch()
 
-            def reproduzir(musicas, indice):
-                (pasta / "02-nova.mp3").touch()
-                return 0
-
-            with (
-                patch.object(player, "PASTA_MUSICAS", diretorio),
-                patch.object(player.shutil, "which", return_value="/usr/bin/mpv"),
-                patch.object(player, "exibir_menu") as exibir_menu,
-                patch.object(player, "tocar_musicas", side_effect=reproduzir),
-                patch.object(player, "limpar_tela"),
-                patch("builtins.input", side_effect=["1", "0"]),
-            ):
-                codigo_saida = player.main()
-
-        self.assertEqual(codigo_saida, 0)
-        self.assertEqual(
-            exibir_menu.call_args_list,
-            [
-                call(["01-primeira.mp3"]),
-                call(["01-primeira.mp3", "02-nova.mp3"]),
-            ],
-        )
+            self.assertTrue(player.consumir_pedido_de_lista(str(pedido)))
+            self.assertFalse(pedido.exists())
+            self.assertFalse(player.consumir_pedido_de_lista(str(pedido)))
 
 
 class TestComandoMpv(unittest.TestCase):
@@ -127,6 +122,7 @@ class TestComandoMpv(unittest.TestCase):
                     for item in comando
                     if item.startswith("--input-ipc-server=")
                 )
+                chamada["socket"] = caminho_socket
                 chamada["atalhos"] = Path(caminho_config).read_text()
                 Path(caminho_socket).touch()
                 return processo
@@ -134,6 +130,11 @@ class TestComandoMpv(unittest.TestCase):
             with (
                 patch.object(player, "PASTA_MUSICAS", str(biblioteca)),
                 patch.object(player.tempfile, "gettempdir", return_value=diretorio),
+                patch.object(
+                    player.shutil,
+                    "which",
+                    return_value="/usr/bin/touch",
+                ),
                 patch.object(player.subprocess, "Popen", side_effect=iniciar_mpv),
                 patch.object(player, "exibir_reproducao") as exibir_reproducao,
             ):
@@ -143,6 +144,8 @@ class TestComandoMpv(unittest.TestCase):
                 )
 
         comando = chamada["comando"]
+        caminho_socket = chamada["socket"]
+        caminho_pedido = caminho_socket.removesuffix(".sock") + "-listar"
         self.assertEqual(codigo_saida, 0)
         self.assertEqual(comando[0], "mpv")
         self.assertIn("--no-video", comando)
@@ -167,11 +170,18 @@ class TestComandoMpv(unittest.TestCase):
                 "B playlist-prev",
                 "s cycle shuffle",
                 "S cycle shuffle",
+                f'l run "/usr/bin/touch" "{caminho_pedido}"',
+                f'L run "/usr/bin/touch" "{caminho_pedido}"',
                 "q quit",
                 "Q quit",
             ],
         )
-        exibir_reproducao.assert_called_once()
+        exibir_reproducao.assert_called_once_with(
+            caminho_socket,
+            ["primeira.mp3", "segunda.flac"],
+            processo,
+            caminho_pedido,
+        )
         processo.wait.assert_called_once_with(timeout=1)
 
 

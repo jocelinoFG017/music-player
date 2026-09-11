@@ -10,7 +10,7 @@ import time
 EXTENSOES = (".mp3", ".wav", ".ogg", ".flac", ".m4a")
 ATALHOS = (
     "[P] Pause  [N] proxima  [B] anterior  "
-    "[S] aleatorio: {estado}  [Q] sair"
+    "[S] aleatorio: {estado}  [L] {acao_lista}  [Q] sair"
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -64,32 +64,67 @@ def consultar_mpv(socket_path, propriedade):
         return None
 
 
-def formatar_controles(aleatorio):
+def formatar_controles(aleatorio, lista_visivel=False):
     estado = "ligado" if aleatorio else "desligado"
-    return ATALHOS.format(estado=estado)
+    acao_lista = "voltar" if lista_visivel else "listar"
+    return ATALHOS.format(estado=estado, acao_lista=acao_lista)
 
 
-def exibir_menu(musicas):
-    print("\n=== MUSIC PLAYER ===\n")
+def exibir_lista_reproducao(musicas, posicao, aleatorio):
+    print("=== MUSICAS ===\n")
 
-    for indice, musica in enumerate(musicas, start=1):
-        print(f"{indice}. {musica}")
+    for indice, musica in enumerate(musicas):
+        marcador = ">" if indice == posicao else " "
+        nome = os.path.splitext(musica)[0]
+        print(f"{marcador} {indice + 1}. {nome}")
 
-    print("\n0. Sair")
+    print(f"\n{formatar_controles(aleatorio, lista_visivel=True)}", flush=True)
 
 
-def exibir_reproducao(socket_path, musicas, processo):
+def consumir_pedido_de_lista(caminho_pedido):
+    try:
+        os.unlink(caminho_pedido)
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+
+
+def exibir_reproducao(socket_path, musicas, processo, caminho_pedido_lista):
     posicao_anterior = None
     status_anterior = None
     aleatorio_anterior = None
+    lista_visivel = False
 
     while processo.poll() is None:
         posicao = consultar_mpv(socket_path, "playlist-pos")
         tempo_atual = consultar_mpv(socket_path, "time-pos")
         duracao = consultar_mpv(socket_path, "duration")
         aleatorio = consultar_mpv(socket_path, "shuffle")
+        alternou_lista = consumir_pedido_de_lista(caminho_pedido_lista)
 
-        if posicao is not None and posicao != posicao_anterior:
+        if alternou_lista:
+            lista_visivel = not lista_visivel
+            posicao_anterior = None
+            status_anterior = None
+            limpar_tela()
+
+        mudou_musica = posicao is not None and posicao != posicao_anterior
+        mudou_aleatorio = aleatorio != aleatorio_anterior
+
+        if lista_visivel:
+            if posicao is not None and (
+                alternou_lista or mudou_musica or mudou_aleatorio
+            ):
+                limpar_tela()
+                exibir_lista_reproducao(musicas, int(posicao), aleatorio)
+                posicao_anterior = posicao
+                aleatorio_anterior = aleatorio
+            time.sleep(0.2)
+            continue
+
+        if posicao is not None and (mudou_musica or alternou_lista):
             indice = int(posicao)
             nome = os.path.splitext(musicas[indice])[0]
             status_anterior = None
@@ -100,7 +135,7 @@ def exibir_reproducao(socket_path, musicas, processo):
             print(formatar_controles(aleatorio), flush=True)
             posicao_anterior = posicao
 
-        if aleatorio != aleatorio_anterior and posicao_anterior is not None:
+        if mudou_aleatorio and posicao_anterior is not None:
             controles = formatar_controles(aleatorio)
             print(f"\033[1A\r\033[K{controles}\033[K\n", end="", flush=True)
             aleatorio_anterior = aleatorio
@@ -141,10 +176,17 @@ def encerrar_processo(processo):
 
 def tocar_musicas(musicas, indice_inicial):
     playlist = [os.path.join(PASTA_MUSICAS, musica) for musica in musicas]
+    identificador = f"{os.getpid()}-{time.monotonic_ns()}"
     socket_path = os.path.join(
         tempfile.gettempdir(),
-        f"music-player-{os.getpid()}.sock",
+        f"music-player-{identificador}.sock",
     )
+    caminho_pedido_lista = os.path.join(
+        tempfile.gettempdir(),
+        f"music-player-{identificador}-listar",
+    )
+    comando_touch = shutil.which("touch") or "/usr/bin/touch"
+    consumir_pedido_de_lista(caminho_pedido_lista)
     comandos = "\n".join([
         "p cycle pause",
         "P cycle pause",
@@ -154,6 +196,8 @@ def tocar_musicas(musicas, indice_inicial):
         "B playlist-prev",
         "s cycle shuffle",
         "S cycle shuffle",
+        f'l run "{comando_touch}" "{caminho_pedido_lista}"',
+        f'L run "{comando_touch}" "{caminho_pedido_lista}"',
         "q quit",
         "Q quit",
     ])
@@ -210,7 +254,12 @@ def tocar_musicas(musicas, indice_inicial):
             )
             return codigo_saida if codigo_saida > 0 else 1
 
-        exibir_reproducao(socket_path, musicas, processo)
+        exibir_reproducao(
+            socket_path,
+            musicas,
+            processo,
+            caminho_pedido_lista,
+        )
 
         try:
             codigo_saida = processo.wait(timeout=1)
@@ -258,6 +307,11 @@ def tocar_musicas(musicas, indice_inicial):
                 os.unlink(socket_path)
             except OSError:
                 pass
+        if os.path.exists(caminho_pedido_lista):
+            try:
+                os.unlink(caminho_pedido_lista)
+            except OSError:
+                pass
 
 
 def main():
@@ -265,51 +319,27 @@ def main():
         print("A pasta 'music' não foi encontrada.", file=sys.stderr)
         return 1
 
-    while True:
-        try:
-            musicas = listar_musicas()
-        except OSError as erro:
-            print(
-                f"Não foi possível ler a pasta 'music': {erro}",
-                file=sys.stderr,
-            )
-            return 1
+    try:
+        musicas = listar_musicas()
+    except OSError as erro:
+        print(
+            f"Não foi possível ler a pasta 'music': {erro}",
+            file=sys.stderr,
+        )
+        return 1
 
-        if not musicas:
-            print("Nenhuma música encontrada.")
-            return 0
+    if not musicas:
+        print("Nenhuma música encontrada.")
+        return 0
 
-        if shutil.which("mpv") is None:
-            print(
-                "O mpv não foi encontrado. Instale-o antes de continuar.",
-                file=sys.stderr,
-            )
-            return 1
+    if shutil.which("mpv") is None:
+        print(
+            "O mpv não foi encontrado. Instale-o antes de continuar.",
+            file=sys.stderr,
+        )
+        return 1
 
-        exibir_menu(musicas)
-
-        try:
-            escolha = input("\nEscolha uma música: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\nOperação cancelada.")
-            return 130
-
-        if escolha == "0":
-            return 0
-
-        if not escolha.isdigit():
-            print("Opção inválida.")
-            continue
-
-        indice = int(escolha) - 1
-
-        if 0 <= indice < len(musicas):
-            codigo_saida = tocar_musicas(musicas, indice)
-            if codigo_saida != 0:
-                return codigo_saida
-            limpar_tela()
-        else:
-            print("Música inválida.")
+    return tocar_musicas(musicas, 0)
 
 
 if __name__ == "__main__":
