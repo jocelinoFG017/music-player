@@ -1,0 +1,18 @@
+# Cache e arquivos compilados do Python
+__pycache__/
+*.py[cod]
+
+# Ambientes virtuais
+.venv/
+venv/
+
+# Músicas adicionadas pelo usuário
+music/*
+!music/.gitkeep
+
+# Arquivos baixados pelo programa
+download-direto/*
+!download-direto/.gitkeep
+
+# Arquivo temporário criado ao atualizar o yt-dlp
+.tools/yt-dlp.novo

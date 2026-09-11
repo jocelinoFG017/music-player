@@ -1,0 +1,7 @@
+[project]
+name = "music-player-cli"
+version = "1.0.0"
+description = "Player e downloader de musicas para linha de comando."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = []
