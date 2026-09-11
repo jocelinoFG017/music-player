@@ -8,7 +8,8 @@ Este projeto possui dois programas:
 
 ## Requisitos
 
-- Python 3.14 (a versão recomendada e fixada em `.python-version` é a 3.14.7)
+- Python 3.10 ou mais recente (a versão recomendada e fixada em
+  `.python-version` é a 3.14.7)
 - `mpv`, para reproduzir as músicas
 - `ffmpeg`, para converter os downloads para MP3
 
@@ -26,8 +27,9 @@ python3 --version
 
 Gerenciadores como `pyenv`, `mise` e `asdf` reconhecem o arquivo
 `.python-version` e selecionam automaticamente o Python 3.14.7 quando essa
-versão está instalada. O intervalo suportado pelo projeto também está declarado
-em `pyproject.toml`.
+versão está instalada. Ela é a versão recomendada para desenvolvimento, mas o
+projeto aceita qualquer Python a partir do 3.10, conforme declarado em
+`pyproject.toml`.
 
 Não é necessário instalar `yt-dlp` pelo Ubuntu ou pelo `pip`. O projeto usa
 sua própria cópia atualizada, localizada em `.tools/yt-dlp`, evitando conflitos
