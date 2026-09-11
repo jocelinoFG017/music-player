@@ -19,5 +19,6 @@ music/*
 download-direto/*
 !download-direto/.gitkeep
 
-# Arquivo temporário criado ao atualizar o yt-dlp
+# Arquivos temporários criados ao atualizar o yt-dlp
 .tools/yt-dlp.novo
+.tools/.atualizacao-yt-dlp-*/

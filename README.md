@@ -135,20 +135,22 @@ baixado.
 ## Atualizar o yt-dlp local
 
 Se o YouTube mudar e o downloader deixar de extrair os vídeos, atualize somente
-a cópia armazenada dentro deste projeto:
+a cópia armazenada dentro deste projeto com:
 
 ```bash
-curl --fail --location \
-  --output .tools/yt-dlp.novo \
-  https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
-mv .tools/yt-dlp.novo .tools/yt-dlp
+music-update
 ```
 
-Confira a versão local com:
+Sem instalar os comandos do projeto, use:
 
 ```bash
-python3 .tools/yt-dlp --version
+python3 atualizar_ytdlp.py
 ```
+
+O atualizador baixa o executável e a lista oficial de checksums em uma pasta
+temporária, confere o SHA-256 e executa a nova cópia com `--version`. A troca é
+atômica e acontece somente depois dessas validações; em caso de erro, o arquivo
+anterior é preservado.
 
 O `downloader.py` não utiliza o `yt-dlp` antigo fornecido pelo Ubuntu. Todos os
 downloads e a ferramenta atualizada permanecem dentro da pasta do projeto.

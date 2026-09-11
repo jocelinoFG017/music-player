@@ -13,6 +13,7 @@ dependencies = []
 [project.scripts]
 music-player = "player:main"
 music-download = "downloader:main"
+music-update = "atualizar_ytdlp:main"
 
 [tool.setuptools]
-py-modules = ["player", "downloader"]
+py-modules = ["player", "downloader", "atualizar_ytdlp"]

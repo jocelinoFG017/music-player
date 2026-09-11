@@ -32,8 +32,9 @@ jobs:
       - name: Verificar sintaxe
         run: >-
           python -m py_compile
-          player.py downloader.py
+          player.py downloader.py atualizar_ytdlp.py
           tests/test_player.py tests/test_downloader.py
+          tests/test_atualizar_ytdlp.py
 
       - name: Executar testes
         run: python -m unittest discover -s tests -v

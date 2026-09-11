@@ -6,6 +6,7 @@ pasta do repositório:
 ```text
 music-player
 music-download
+music-update
 ```
 
 O projeto requer Python 3.10 ou mais recente. O `mpv` é usado para reprodução e
@@ -176,6 +177,12 @@ reinstalar. Se a pasta do projeto for movida, execute novamente:
 
 ```bash
 python -m pip install --editable .
+```
+
+Para atualizar com segurança a cópia local do `yt-dlp`, execute:
+
+```bash
+music-update
 ```
 
 Para remover os comandos do ambiente ativo:
