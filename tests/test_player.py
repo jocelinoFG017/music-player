@@ -81,11 +81,13 @@ class TestListaDuranteReproducao(unittest.TestCase):
                 ["primeira.mp3", "segunda.flac"],
                 1,
                 False,
+                dimensoes=(80, 12),
             )
 
         texto = saida.getvalue()
-        self.assertIn("  1. primeira", texto)
-        self.assertIn("> 2. segunda", texto)
+        self.assertIn("BIBLIOTECA · 2 músicas · página 1/1", texto)
+        self.assertIn("  1  primeira", texto)
+        self.assertIn("▶ 2  segunda", texto)
         self.assertIn("[L] voltar", texto)
 
     def test_consumir_pedido_remove_arquivo(self):
@@ -93,9 +95,50 @@ class TestListaDuranteReproducao(unittest.TestCase):
             pedido = Path(diretorio) / "listar"
             pedido.touch()
 
-            self.assertTrue(player.consumir_pedido_de_lista(str(pedido)))
+            self.assertTrue(player.consumir_pedido(str(pedido)))
             self.assertFalse(pedido.exists())
-            self.assertFalse(player.consumir_pedido_de_lista(str(pedido)))
+            self.assertFalse(player.consumir_pedido(str(pedido)))
+
+    def test_pagina_lista_grande_sem_imprimir_todas_as_musicas(self):
+        musicas = [f"musica-{indice:03d}.mp3" for indice in range(1, 501)]
+        saida = io.StringIO()
+
+        with redirect_stdout(saida):
+            pagina = player.exibir_lista_reproducao(
+                musicas,
+                72,
+                True,
+                pagina=10,
+                dimensoes=(70, 12),
+            )
+
+        texto = saida.getvalue()
+        self.assertEqual(pagina, 10)
+        self.assertIn("500 músicas · página 11/72", texto)
+        self.assertIn("▶ 073  musica-073", texto)
+        self.assertNotIn("musica-001", texto)
+        self.assertNotIn("musica-500", texto)
+        self.assertLessEqual(len(texto.splitlines()), 11)
+
+    def test_encurta_titulo_longo_respeitando_caracteres_largos(self):
+        titulo = player.ajustar_texto("僕は雨になりたい e continuar", 12)
+
+        self.assertEqual(player.largura_visual(titulo), 12)
+        self.assertTrue(titulo.rstrip().endswith("…"))
+
+    def test_cabecalho_e_controles_cabem_em_terminal_estreito(self):
+        borda = player.criar_borda(
+            "BIBLIOTECA · 500 músicas · página 20/20",
+            30,
+        )
+        controles = player.formatar_controles(
+            True,
+            lista_visivel=True,
+            largura=30,
+        )
+
+        self.assertEqual(player.largura_visual(borda), 30)
+        self.assertLessEqual(player.largura_visual(controles), 30)
 
 
 class TestModoAleatorio(unittest.TestCase):
@@ -147,9 +190,15 @@ class TestComandoMpv(unittest.TestCase):
                     for item in comando
                     if item.startswith("--script=")
                 )
+                caminho_playlist = next(
+                    item.split("=", 1)[1]
+                    for item in comando
+                    if item.startswith("--playlist=")
+                )
                 chamada["socket"] = caminho_socket
                 chamada["atalhos"] = Path(caminho_config).read_text()
                 chamada["script"] = Path(caminho_script).read_text()
+                chamada["playlist"] = Path(caminho_playlist).read_text()
                 Path(caminho_socket).touch()
                 return processo
 
@@ -171,7 +220,12 @@ class TestComandoMpv(unittest.TestCase):
 
         comando = chamada["comando"]
         caminho_socket = chamada["socket"]
-        caminho_pedido = caminho_socket.removesuffix(".sock") + "-listar"
+        prefixo_pedido = caminho_socket.removesuffix(".sock")
+        caminhos_pedidos = {
+            "lista": f"{prefixo_pedido}-listar",
+            "pagina_anterior": f"{prefixo_pedido}-pagina-anterior",
+            "proxima_pagina": f"{prefixo_pedido}-proxima-pagina",
+        }
         self.assertEqual(codigo_saida, 0)
         self.assertEqual(comando[0], "mpv")
         self.assertIn("--no-video", comando)
@@ -179,9 +233,11 @@ class TestComandoMpv(unittest.TestCase):
         self.assertIn("--loop-playlist=inf", comando)
         self.assertIn("--playlist-start=1", comando)
         self.assertTrue(any(item.startswith("--script=") for item in comando))
+        self.assertTrue(comando[-1].startswith("--playlist="))
         self.assertEqual(
-            comando[-2:],
+            chamada["playlist"].splitlines(),
             [
+                "#EXTM3U",
                 str(biblioteca / "primeira.mp3"),
                 str(biblioteca / "segunda.flac"),
             ],
@@ -193,8 +249,16 @@ class TestComandoMpv(unittest.TestCase):
                 "P cycle pause",
                 "s cycle shuffle",
                 "S cycle shuffle",
-                f'l run "/usr/bin/touch" "{caminho_pedido}"',
-                f'L run "/usr/bin/touch" "{caminho_pedido}"',
+                f'l run "/usr/bin/touch" "{caminhos_pedidos["lista"]}"',
+                f'L run "/usr/bin/touch" "{caminhos_pedidos["lista"]}"',
+                (
+                    f'PGUP run "/usr/bin/touch" '
+                    f'"{caminhos_pedidos["pagina_anterior"]}"'
+                ),
+                (
+                    f'PGDWN run "/usr/bin/touch" '
+                    f'"{caminhos_pedidos["proxima_pagina"]}"'
+                ),
                 "q quit",
                 "Q quit",
             ],
@@ -204,7 +268,7 @@ class TestComandoMpv(unittest.TestCase):
             caminho_socket,
             ["primeira.mp3", "segunda.flac"],
             processo,
-            caminho_pedido,
+            caminhos_pedidos,
         )
         processo.wait.assert_called_once_with(timeout=1)
 

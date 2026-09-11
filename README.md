@@ -97,12 +97,19 @@ Durante a reprodução:
 - `[B]`: música anterior ou uma música aleatória, conforme o modo ativo
 - `[S]`: ativar ou desativar o modo aleatório
 - `[L]`: listar as músicas; pressione novamente para voltar à reprodução
+- `[PgUp]` e `[PgDn]`: navegar pelas páginas da biblioteca aberta
 - `[Q]`: sair da reprodução
 
 Ao terminar a última música, a reprodução volta automaticamente para a
 primeira. Ao abrir a lista com `[L]`, a música atual é indicada pelo marcador
 `>`. Com o modo aleatório ligado, cada acionamento de `[N]` ou `[B]` sorteia
 uma música diferente da atual. Ao sair, o comando é encerrado.
+
+A biblioteca se adapta ao tamanho do terminal e exibe somente uma página por
+vez, evitando despejar centenas de linhas na tela. Títulos longos são
+encurtados visualmente, sem alterar o nome dos arquivos. Internamente, as
+músicas são entregues ao `mpv` por um arquivo de playlist temporário, mantendo
+o comando leve mesmo com bibliotecas grandes.
 
 Se o `mpv` não estiver instalado, não puder ser iniciado ou encerrar com erro,
 o player informa o problema no terminal e termina com um código de saída de
