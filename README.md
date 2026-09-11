@@ -1,5 +1,7 @@
 # Music Player
 
+[![Qualidade](https://github.com/jocelinoFG017/music-player/actions/workflows/ci.yml/badge.svg)](https://github.com/jocelinoFG017/music-player/actions/workflows/ci.yml)
+
 Este projeto possui dois programas:
 
 - `player.py`: reproduz os arquivos de áudio da pasta `music`.
@@ -161,3 +163,7 @@ fazem downloads. Execute a suíte completa com:
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+O GitHub Actions executa a verificação de sintaxe e os testes no Python 3.10 e
+3.14 a cada `push` e `pull request`. A cópia local do `yt-dlp` também é comparada
+com a versão estável mais recente e recebe uma verificação semanal automática.

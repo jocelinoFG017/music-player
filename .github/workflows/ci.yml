@@ -1,0 +1,69 @@
+name: Qualidade
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.14"]
+
+    steps:
+      - name: Baixar o repositório
+        uses: actions/checkout@v7
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Verificar sintaxe
+        run: >-
+          python -m py_compile
+          player.py downloader.py
+          tests/test_player.py tests/test_downloader.py
+
+      - name: Executar testes
+        run: python -m unittest discover -s tests -v
+
+  verificar-yt-dlp:
+    name: yt-dlp atualizado
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Baixar o repositório
+        uses: actions/checkout@v7
+
+      - name: Configurar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Comparar com a versão estável mais recente
+        shell: bash
+        run: |
+          cp .tools/yt-dlp "$RUNNER_TEMP/yt-dlp"
+          versao_local="$(python "$RUNNER_TEMP/yt-dlp" --version)"
+          python "$RUNNER_TEMP/yt-dlp" --update
+          versao_recente="$(python "$RUNNER_TEMP/yt-dlp" --version)"
+
+          echo "Versão local: $versao_local"
+          echo "Versão estável mais recente: $versao_recente"
+
+          if [[ "$versao_local" != "$versao_recente" ]]; then
+            echo "::error file=.tools/yt-dlp::Atualize o yt-dlp para $versao_recente."
+            exit 1
+          fi
