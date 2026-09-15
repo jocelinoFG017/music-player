@@ -1,0 +1,7 @@
+interface:
+  display_name: "Commit Message"
+  short_description: "Gera uma mensagem para mudanças staged"
+  default_prompt: "Use $commit-message para sugerir uma mensagem para as alterações staged atuais."
+
+policy:
+  allow_implicit_invocation: false
