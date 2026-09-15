@@ -22,6 +22,12 @@ python3 player.py
 
 Formatos aceitos: MP3, WAV, OGG, FLAC e M4A.
 
+### Imagens
+
+![Play](assets/play.png)
+
+![List](assets/list.png)
+
 ### Controles
 
 | Tecla | Ação |
