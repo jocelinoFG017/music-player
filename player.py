@@ -8,6 +8,8 @@ import tempfile
 import time
 import unicodedata
 
+import stats as estatisticas
+
 EXTENSOES = (".mp3", ".wav", ".ogg", ".flac", ".m4a")
 LARGURA_MAXIMA = 110
 
@@ -68,14 +70,13 @@ def limpar_tela():
 
 
 def listar_musicas():
-    return sorted(
-        [
-            arquivo
-            for arquivo in os.listdir(PASTA_MUSICAS)
-            if arquivo.lower().endswith(EXTENSOES)
-        ],
-        key=str.casefold,
-    )
+    musicas = []
+    for raiz, _, arquivos in os.walk(PASTA_MUSICAS):
+        for arquivo in arquivos:
+            if arquivo.lower().endswith(EXTENSOES):
+                caminho = os.path.join(raiz, arquivo)
+                musicas.append(os.path.relpath(caminho, PASTA_MUSICAS))
+    return sorted(musicas, key=str.casefold)
 
 
 def formatar_tempo(segundos):
@@ -294,6 +295,26 @@ def replay_esta_ativo(valor):
 
 
 def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
+    rastreador = estatisticas.RastreadorReproducao()
+    try:
+        return _executar_interface_reproducao(
+            socket_path,
+            musicas,
+            processo,
+            caminhos_pedidos,
+            rastreador,
+        )
+    finally:
+        rastreador.finalizar()
+
+
+def _executar_interface_reproducao(
+    socket_path,
+    musicas,
+    processo,
+    caminhos_pedidos,
+    rastreador,
+):
     posicao_anterior = None
     status_anterior = None
     aleatorio_anterior = None
@@ -309,6 +330,7 @@ def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
         posicao = consultar_mpv(socket_path, "playlist-pos")
         tempo_atual = consultar_mpv(socket_path, "time-pos")
         duracao = consultar_mpv(socket_path, "duration")
+        pausada = consultar_mpv(socket_path, "pause")
         aleatorio = consultar_mpv(socket_path, "shuffle")
         if aleatorio is None and aleatorio_anterior is not None:
             aleatorio = aleatorio_anterior
@@ -316,6 +338,17 @@ def exibir_reproducao(socket_path, musicas, processo, caminhos_pedidos):
         if replay is None and replay_anterior is not None:
             replay = replay_anterior
         replay = replay_esta_ativo(replay)
+        if posicao is not None:
+            try:
+                musica_atual = musicas[int(posicao)]
+            except (IndexError, TypeError, ValueError):
+                musica_atual = None
+            rastreador.atualizar(
+                musica_atual,
+                tempo_atual,
+                duracao,
+                pausada,
+            )
         alternou_lista = consumir_pedido(caminhos_pedidos["lista"])
         pagina_anterior = consumir_pedido(
             caminhos_pedidos["pagina_anterior"],
@@ -645,7 +678,24 @@ def tocar_musicas(musicas, indice_inicial):
                     pass
 
 
-def main():
+def main(argv=None):
+    argumentos = list(argv or [])
+    if argumentos and argumentos[0] == "stats":
+        if len(argumentos) > 2:
+            print(
+                "Uso: player stats [today|week|month|year|all|all-time]",
+                file=sys.stderr,
+            )
+            return 2
+        periodo = argumentos[1].lower() if len(argumentos) == 2 else None
+        return estatisticas.executar(periodo)
+    if argumentos:
+        print(
+            "Uso: player [stats [today|week|month|year|all|all-time]]",
+            file=sys.stderr,
+        )
+        return 2
+
     if not os.path.isdir(PASTA_MUSICAS):
         print("A pasta 'music' não foi encontrada.", file=sys.stderr)
         return 1
@@ -673,5 +723,9 @@ def main():
     return tocar_musicas(musicas, 0)
 
 
+def cli():
+    return main(sys.argv[1:])
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli())

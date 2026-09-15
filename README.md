@@ -21,6 +21,25 @@ python3 player.py
 ```
 
 Formatos aceitos: MP3, WAV, OGG, FLAC e M4A.
+Também são encontradas músicas organizadas em subpastas de `music`.
+
+### Estatísticas
+
+O player registra localmente o tempo efetivamente ouvido. Pausas não entram no
+tempo e uma faixa só conta como reprodução depois de 50% da duração ou 4
+minutos, o que ocorrer primeiro. Os dados ficam em `stats.json`, fora da pasta
+de músicas.
+
+```bash
+rodar player stats
+rodar player stats today
+rodar player stats week
+rodar player stats month
+rodar player stats year
+rodar player stats all
+```
+
+`all-time` também é aceito como sinônimo de `all`.
 
 ### Imagens
 

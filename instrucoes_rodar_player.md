@@ -50,9 +50,9 @@ Adicione ao final do arquivo, trocando o caminho pelo local do projeto:
 ```bash
 rodar() {
     if [ "$1" = "player" ]; then
-        python3 "/caminho/completo/music-player/player.py"
+        python3 "/caminho/completo/music-player/player.py" "${@:2}"
     else
-        echo "Uso: rodar player"
+        echo "Uso: rodar player [stats [today|week|month|year|all]]"
     fi
 }
 ```

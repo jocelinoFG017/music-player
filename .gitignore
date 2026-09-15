@@ -22,3 +22,8 @@ download-direto/*
 # Arquivos temporários criados ao atualizar o yt-dlp
 .tools/yt-dlp.novo
 .tools/.atualizacao-yt-dlp-*/
+
+# Histórico local de uso do player
+stats.json
+stats.json.lock
+.stats-*.tmp

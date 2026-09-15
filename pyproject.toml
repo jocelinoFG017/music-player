@@ -11,9 +11,9 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
-music-player = "player:main"
+music-player = "player:cli"
 music-download = "downloader:main"
 music-update = "atualizar_ytdlp:main"
 
 [tool.setuptools]
-py-modules = ["player", "downloader", "atualizar_ytdlp"]
+py-modules = ["player", "stats", "downloader", "atualizar_ytdlp"]
