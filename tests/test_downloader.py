@@ -48,7 +48,17 @@ class TestComandoYtDlp(unittest.TestCase):
             ytdlp = pasta / "yt-dlp"
             downloads = pasta / "downloads"
             ytdlp.touch()
-            resultado = subprocess.CompletedProcess([], 0)
+            downloads.mkdir()
+            arquivo_baixado = downloads / "Faixa [video].mp3"
+            arquivo_baixado.touch()
+            resultado = subprocess.CompletedProcess(
+                [],
+                0,
+                stdout=(
+                    f"{downloader.MARCADOR_ARQUIVO}{arquivo_baixado}\n"
+                ),
+                stderr="",
+            )
 
             with (
                 patch.object(downloader, "YTDLP_LOCAL", ytdlp),
@@ -83,12 +93,38 @@ class TestComandoYtDlp(unittest.TestCase):
                 "bestaudio/best",
                 "--output",
                 modelo_saida,
+                "--print",
+                (
+                    "after_move:"
+                    f"{downloader.MARCADOR_ARQUIVO}%(filepath)s"
+                ),
                 "--",
                 link,
             ]
+            arquivo_final_existe = (downloads / "Faixa.mp3").is_file()
 
         self.assertEqual(codigo_saida, 0)
-        executar.assert_called_once_with(comando_esperado, check=False)
+        executar.assert_called_once_with(
+            comando_esperado,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertTrue(arquivo_final_existe)
+
+    def test_remove_id_sem_sobrescrever_arquivo_existente(self):
+        with tempfile.TemporaryDirectory() as diretorio:
+            pasta = Path(diretorio)
+            (pasta / "Faixa.mp3").touch()
+            baixado = pasta / "Faixa [video].mp3"
+            baixado.touch()
+
+            caminho_final = downloader.finalizar_download(
+                f"{downloader.MARCADOR_ARQUIVO}{baixado}\n",
+                pasta,
+            )
+
+        self.assertEqual(caminho_final.name, "Faixa (2).mp3")
 
 
 if __name__ == "__main__":

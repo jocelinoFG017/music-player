@@ -243,10 +243,21 @@ class MusicPlayerGUI(QMainWindow):
         self.botao_destino.setEnabled(True)
         self.campo_link.setEnabled(True)
         if codigo == 0:
-            self.rotulo_download.setText(
-                f"Download concluído em: {self.pasta_downloads}"
-            )
-            self.campo_link.clear()
+            try:
+                caminho_final = downloader.finalizar_download(
+                    "".join(self.saida_download),
+                    self.pasta_downloads,
+                )
+            except (downloader.ErroDownload, OSError) as erro:
+                self.rotulo_download.setText(
+                    "Download concluído, mas o arquivo não foi renomeado."
+                )
+                QMessageBox.warning(self, "Arquivo não renomeado", str(erro))
+            else:
+                self.rotulo_download.setText(
+                    f"Download concluído: {caminho_final.name}"
+                )
+                self.campo_link.clear()
         else:
             detalhe = "".join(self.saida_download).strip()
             if detalhe:

@@ -1,4 +1,5 @@
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -11,6 +12,8 @@ from music_player_core.library import pasta_downloads_configurada
 BASE_DIR = Path(__file__).resolve().parent
 PASTA_DOWNLOADS = pasta_downloads_configurada() or BASE_DIR / "download-direto"
 YTDLP_LOCAL = BASE_DIR / ".tools" / "yt-dlp"
+MARCADOR_ARQUIVO = "__MUSIC_PLAYER_FILE__"
+PADRAO_ID_FINAL = re.compile(r"^(?P<titulo>.+) \[[^\[\]]+\]$")
 
 
 class ErroDownload(Exception):
@@ -83,10 +86,51 @@ def preparar_download(link, pasta_downloads=None):
         "bestaudio/best",
         "--output",
         modelo_saida,
+        "--print",
+        f"after_move:{MARCADOR_ARQUIVO}%(filepath)s",
         "--",
         link,
     ]
     return comando, destino
+
+
+def _proximo_nome_disponivel(caminho):
+    if not caminho.exists():
+        return caminho
+    numero = 2
+    while True:
+        candidato = caminho.with_name(
+            f"{caminho.stem} ({numero}){caminho.suffix}"
+        )
+        if not candidato.exists():
+            return candidato
+        numero += 1
+
+
+def remover_id_do_nome(caminho):
+    caminho = Path(caminho)
+    correspondencia = PADRAO_ID_FINAL.match(caminho.stem)
+    if correspondencia is None:
+        return caminho
+    destino = caminho.with_name(
+        f"{correspondencia.group('titulo')}{caminho.suffix}"
+    )
+    destino = _proximo_nome_disponivel(destino)
+    caminho.rename(destino)
+    return destino
+
+
+def finalizar_download(saida, pasta_downloads):
+    for linha in reversed((saida or "").splitlines()):
+        if not linha.startswith(MARCADOR_ARQUIVO):
+            continue
+        caminho = Path(linha.removeprefix(MARCADOR_ARQUIVO))
+        if caminho.parent.resolve() != Path(pasta_downloads).resolve():
+            raise ErroDownload("O yt-dlp informou um destino inesperado.")
+        if not caminho.is_file():
+            raise ErroDownload("O arquivo baixado não foi encontrado.")
+        return remover_id_do_nome(caminho)
+    raise ErroDownload("O yt-dlp não informou o nome do arquivo baixado.")
 
 
 def baixar_mp3(link, pasta_downloads=None):
@@ -97,16 +141,29 @@ def baixar_mp3(link, pasta_downloads=None):
         return 1
 
     try:
-        resultado = subprocess.run(comando, check=False)
+        resultado = subprocess.run(
+            comando,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
     except OSError as erro:
         print(f"Não foi possível executar o yt-dlp: {erro}", file=sys.stderr)
         return 1
 
     if resultado.returncode != 0:
+        if resultado.stderr:
+            print(resultado.stderr.strip(), file=sys.stderr)
         print("O download não foi concluído.", file=sys.stderr)
         return resultado.returncode
 
-    print(f"MP3 salvo em: {destino}")
+    try:
+        caminho_final = finalizar_download(resultado.stdout, destino)
+    except (ErroDownload, OSError) as erro:
+        print(f"Download concluído, mas o arquivo não foi renomeado: {erro}")
+        return 1
+
+    print(f"MP3 salvo em: {caminho_final}")
     return 0
 
 

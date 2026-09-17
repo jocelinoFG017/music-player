@@ -111,6 +111,10 @@ Se uma pasta tiver sido escolhida anteriormente no GUI, ela também passa a ser
 o destino padrão do downloader no terminal. Para ouvir o arquivo no player,
 mova-o para a biblioteca configurada.
 
+Durante o download, o ID do vídeo é mantido entre colchetes para evitar
+conflitos. Depois da conversão, ele é removido automaticamente. Se já existir
+um arquivo com o mesmo nome, o novo recebe um número, como `Música (2).mp3`.
+
 Use o downloader apenas para conteúdos que você tem autorização para baixar.
 
 ## 🔄 Atualizar o downloader
