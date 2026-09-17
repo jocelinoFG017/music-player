@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from pathlib import Path
 
 
@@ -20,6 +21,47 @@ def _diretorio_configuracao():
 CAMINHO_CONFIGURACAO = _diretorio_configuracao() / "config.json"
 
 
+def carregar_configuracao():
+    try:
+        with CAMINHO_CONFIGURACAO.open(encoding="utf-8") as arquivo:
+            configuracao = json.load(arquivo)
+        return configuracao if isinstance(configuracao, dict) else {}
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return {}
+
+
+def salvar_configuracao(**alteracoes):
+    configuracao = carregar_configuracao()
+    configuracao.update(alteracoes)
+    CAMINHO_CONFIGURACAO.parent.mkdir(parents=True, exist_ok=True)
+    temporario = None
+    try:
+        temporario = tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix=".config-",
+            suffix=".tmp",
+            dir=CAMINHO_CONFIGURACAO.parent,
+            delete=False,
+        )
+        json.dump(configuracao, temporario, ensure_ascii=False, indent=2)
+        temporario.write("\n")
+        temporario.flush()
+        os.fsync(temporario.fileno())
+        temporario.close()
+        os.replace(temporario.name, CAMINHO_CONFIGURACAO)
+        temporario = None
+    finally:
+        if temporario is not None:
+            try:
+                nome = temporario.name
+                if not temporario.closed:
+                    temporario.close()
+                os.unlink(nome)
+            except OSError:
+                pass
+
+
 def pasta_musicas():
     """Retorna a biblioteca comum aos dois players.
 
@@ -31,16 +73,18 @@ def pasta_musicas():
     if personalizada:
         return Path(personalizada).expanduser().resolve()
 
-    try:
-        with CAMINHO_CONFIGURACAO.open(encoding="utf-8") as arquivo:
-            configuracao = json.load(arquivo)
-        configurada = configuracao.get("library_path")
-        if configurada:
-            return Path(configurada).expanduser().resolve()
-    except (FileNotFoundError, OSError, json.JSONDecodeError, AttributeError):
-        pass
+    configurada = carregar_configuracao().get("library_path")
+    if configurada:
+        return Path(configurada).expanduser().resolve()
 
     return RAIZ_PROJETO / "music"
+
+
+def pasta_downloads_configurada():
+    configurada = carregar_configuracao().get("download_path")
+    if not configurada:
+        return None
+    return Path(configurada).expanduser().resolve()
 
 
 def listar_musicas(diretorio=None):

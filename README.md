@@ -92,12 +92,24 @@ automaticamente e preservado em um backup. Veja
 
 ## ⬇️ Baixar uma música
 
+Na aba **Downloader** do GUI, cole o link, escolha a pasta de destino e clique
+em **Baixar MP3**. A pasta escolhida fica salva para os próximos downloads.
+
+Pelo terminal, `download-direto` continua sendo o destino padrão:
+
 ```bash
 python3 downloader.py "LINK_DO_YOUTUBE"
 ```
 
-O arquivo MP3 será salvo em `download-direto`. Para ouvi-lo no player, mova-o
-para a pasta `music`.
+Também é possível escolher o destino no comando:
+
+```bash
+python3 downloader.py "LINK_DO_YOUTUBE" --output-dir "/pasta/escolhida"
+```
+
+Se uma pasta tiver sido escolhida anteriormente no GUI, ela também passa a ser
+o destino padrão do downloader no terminal. Para ouvir o arquivo no player,
+mova-o para a biblioteca configurada.
 
 Use o downloader apenas para conteúdos que você tem autorização para baixar.
 

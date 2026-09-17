@@ -48,6 +48,9 @@ python3 -m pip install -e .
 music-player-gui
 ```
 
+O GUI possui uma aba **Downloader**. Na primeira utilização, escolha onde os
+MP3 serão salvos; essa pasta será lembrada nas próximas execuções.
+
 <details>
 <summary>Configurar o atalho em outro Ubuntu</summary>
 

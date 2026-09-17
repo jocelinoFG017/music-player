@@ -6,22 +6,32 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from pathlib import Path
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QProcess, QTimer
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
+import downloader
 import stats as estatisticas
-from music_player_core.library import listar_musicas, pasta_musicas
+from music_player_core.library import (
+    listar_musicas,
+    pasta_downloads_configurada,
+    pasta_musicas,
+    salvar_configuracao,
+)
 
 
 class MusicPlayerGUI(QMainWindow):
@@ -40,6 +50,9 @@ class MusicPlayerGUI(QMainWindow):
         self.arquivo_playlist = None
         self.rastreador = None
         self.indice_atual = None
+        self.processo_download = None
+        self.pasta_downloads = pasta_downloads_configurada()
+        self.saida_download = []
 
         self._montar_interface()
         self.atualizar_biblioteca()
@@ -49,7 +62,13 @@ class MusicPlayerGUI(QMainWindow):
         self.temporizador.start(self.INTERVALO_ATUALIZACAO_MS)
 
     def _montar_interface(self):
-        conteudo = QWidget(self)
+        abas = QTabWidget(self)
+        abas.addTab(self._montar_aba_player(), "Player")
+        abas.addTab(self._montar_aba_downloader(), "Downloader")
+        self.setCentralWidget(abas)
+
+    def _montar_aba_player(self):
+        conteudo = QWidget()
         layout = QVBoxLayout(conteudo)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
@@ -89,7 +108,157 @@ class MusicPlayerGUI(QMainWindow):
         controles.addWidget(self.botao_atualizar)
 
         layout.addLayout(controles)
-        self.setCentralWidget(conteudo)
+        return conteudo
+
+    def _montar_aba_downloader(self):
+        conteudo = QWidget()
+        layout = QVBoxLayout(conteudo)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        titulo = QLabel("Baixar áudio do YouTube")
+        fonte = titulo.font()
+        fonte.setPointSize(16)
+        fonte.setBold(True)
+        titulo.setFont(fonte)
+        layout.addWidget(titulo)
+
+        layout.addWidget(QLabel("Link do vídeo"))
+        self.campo_link = QLineEdit()
+        self.campo_link.setPlaceholderText(
+            "https://www.youtube.com/watch?v=..."
+        )
+        self.campo_link.returnPressed.connect(self.iniciar_download)
+        layout.addWidget(self.campo_link)
+
+        layout.addWidget(QLabel("Pasta de destino"))
+        linha_destino = QHBoxLayout()
+        self.campo_destino = QLineEdit()
+        self.campo_destino.setReadOnly(True)
+        self.campo_destino.setPlaceholderText("Selecione uma pasta")
+        if self.pasta_downloads is not None:
+            self.campo_destino.setText(str(self.pasta_downloads))
+        linha_destino.addWidget(self.campo_destino, 1)
+
+        self.botao_destino = QPushButton("Escolher pasta…")
+        self.botao_destino.clicked.connect(self.escolher_pasta_download)
+        linha_destino.addWidget(self.botao_destino)
+        layout.addLayout(linha_destino)
+
+        self.botao_download = QPushButton("Baixar MP3")
+        self.botao_download.clicked.connect(self.iniciar_download)
+        layout.addWidget(self.botao_download)
+
+        self.rotulo_download = QLabel(
+            "Escolha uma pasta; ela será lembrada nos próximos downloads."
+        )
+        self.rotulo_download.setWordWrap(True)
+        layout.addWidget(self.rotulo_download)
+        layout.addStretch()
+        return conteudo
+
+    def escolher_pasta_download(self, _evento=None):
+        inicial = self.pasta_downloads
+        if inicial is None:
+            downloads = Path.home() / "Downloads"
+            inicial = downloads if downloads.is_dir() else Path.home()
+        escolhida = QFileDialog.getExistingDirectory(
+            self,
+            "Escolha a pasta para os downloads",
+            str(inicial),
+        )
+        if not escolhida:
+            return False
+
+        self.pasta_downloads = Path(escolhida).resolve()
+        self.campo_destino.setText(str(self.pasta_downloads))
+        try:
+            salvar_configuracao(download_path=str(self.pasta_downloads))
+        except OSError as erro:
+            QMessageBox.warning(
+                self,
+                "Configuração não salva",
+                "A pasta será usada agora, mas não pôde ser lembrada:\n"
+                f"{erro}",
+            )
+        return True
+
+    def iniciar_download(self, _evento=None):
+        if (
+            self.processo_download is not None
+            and self.processo_download.state() != QProcess.NotRunning
+        ):
+            return
+
+        link = self.campo_link.text().strip()
+        if not downloader.link_do_youtube(link):
+            QMessageBox.warning(
+                self,
+                "Link inválido",
+                "Cole um link válido do YouTube.",
+            )
+            self.campo_link.setFocus()
+            return
+
+        if self.pasta_downloads is None and not self.escolher_pasta_download():
+            return
+
+        try:
+            comando, _ = downloader.preparar_download(
+                link,
+                self.pasta_downloads,
+            )
+        except (downloader.ErroDownload, OSError) as erro:
+            QMessageBox.critical(self, "Download indisponível", str(erro))
+            return
+
+        self.saida_download = []
+        self.processo_download = QProcess(self)
+        self.processo_download.setProcessChannelMode(
+            QProcess.MergedChannels
+        )
+        self.processo_download.readyReadStandardOutput.connect(
+            self._ler_saida_download
+        )
+        self.processo_download.finished.connect(self._download_finalizado)
+        self.botao_download.setEnabled(False)
+        self.botao_destino.setEnabled(False)
+        self.campo_link.setEnabled(False)
+        self.rotulo_download.setText("Baixando e convertendo o áudio…")
+        self.processo_download.start(comando[0], comando[1:])
+
+    def _ler_saida_download(self):
+        if self.processo_download is None:
+            return
+        trecho = bytes(
+            self.processo_download.readAllStandardOutput()
+        ).decode("utf-8", errors="replace")
+        self.saida_download.append(trecho)
+        if sum(map(len, self.saida_download)) > 20000:
+            self.saida_download = ["".join(self.saida_download)[-20000:]]
+
+    def _download_finalizado(self, codigo, _status):
+        self._ler_saida_download()
+        self.botao_download.setEnabled(True)
+        self.botao_destino.setEnabled(True)
+        self.campo_link.setEnabled(True)
+        if codigo == 0:
+            self.rotulo_download.setText(
+                f"Download concluído em: {self.pasta_downloads}"
+            )
+            self.campo_link.clear()
+        else:
+            detalhe = "".join(self.saida_download).strip()
+            if detalhe:
+                detalhe = detalhe.splitlines()[-1]
+            self.rotulo_download.setText("O download não foi concluído.")
+            QMessageBox.critical(
+                self,
+                "Falha no download",
+                detalhe or f"O yt-dlp encerrou com o código {codigo}.",
+            )
+        self.processo_download.deleteLater()
+        self.processo_download = None
 
     def atualizar_biblioteca(self, _evento=None):
         if self.processo is not None and self.processo.poll() is None:
@@ -287,6 +456,19 @@ class MusicPlayerGUI(QMainWindow):
 
     def closeEvent(self, evento):
         self.temporizador.stop()
+        if (
+            self.processo_download is not None
+            and self.processo_download.state() != QProcess.NotRunning
+        ):
+            try:
+                self.processo_download.finished.disconnect(
+                    self._download_finalizado
+                )
+            except RuntimeError:
+                pass
+            self.processo_download.kill()
+            self.processo_download.waitForFinished(2000)
+            self.processo_download = None
         self._finalizar_rastreamento()
         if self.processo is not None and self.processo.poll() is None:
             try:

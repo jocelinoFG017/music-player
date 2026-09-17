@@ -52,9 +52,13 @@ Para uma configuração persistente, crie
 
 ```json
 {
-  "library_path": "/caminho/para/minhas-musicas"
+  "library_path": "/caminho/para/minhas-musicas",
+  "download_path": "/caminho/para/meus-downloads"
 }
 ```
+
+O campo `download_path` é preenchido automaticamente quando uma pasta é
+escolhida na aba **Downloader** do GUI.
 
 Se `XDG_CONFIG_HOME` estiver definido, o arquivo de configuração fica em
 `$XDG_CONFIG_HOME/music-player/config.json`. O diretório também pode ser

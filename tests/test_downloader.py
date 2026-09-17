@@ -52,7 +52,6 @@ class TestComandoYtDlp(unittest.TestCase):
 
             with (
                 patch.object(downloader, "YTDLP_LOCAL", ytdlp),
-                patch.object(downloader, "PASTA_DOWNLOADS", downloads),
                 patch.object(
                     downloader.shutil,
                     "which",
@@ -65,7 +64,7 @@ class TestComandoYtDlp(unittest.TestCase):
                 ) as executar,
                 redirect_stdout(io.StringIO()),
             ):
-                codigo_saida = downloader.baixar_mp3(link)
+                codigo_saida = downloader.baixar_mp3(link, downloads)
 
             modelo_saida = str(
                 downloads / "%(title)s [%(id)s].%(ext)s"

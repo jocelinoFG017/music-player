@@ -5,10 +5,16 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+from music_player_core.library import pasta_downloads_configurada
+
 
 BASE_DIR = Path(__file__).resolve().parent
-PASTA_DOWNLOADS = BASE_DIR / "download-direto"
+PASTA_DOWNLOADS = pasta_downloads_configurada() or BASE_DIR / "download-direto"
 YTDLP_LOCAL = BASE_DIR / ".tools" / "yt-dlp"
+
+
+class ErroDownload(Exception):
+    pass
 
 
 def criar_parser():
@@ -19,6 +25,11 @@ def criar_parser():
         "link",
         nargs="?",
         help="link do vídeo no YouTube",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        help="pasta em que o MP3 será salvo",
     )
     return parser
 
@@ -44,23 +55,20 @@ def obter_link(link_informado):
     return input("Cole o link do YouTube: ").strip()
 
 
-def baixar_mp3(link):
+def preparar_download(link, pasta_downloads=None):
     if not YTDLP_LOCAL.is_file():
-        print(
-            f"O yt-dlp local não foi encontrado em: {YTDLP_LOCAL}",
-            file=sys.stderr,
+        raise ErroDownload(
+            f"O yt-dlp local não foi encontrado em: {YTDLP_LOCAL}"
         )
-        return 1
 
     if shutil.which("ffmpeg") is None:
-        print(
-            "O ffmpeg não foi encontrado. Instale-o antes de continuar.",
-            file=sys.stderr,
+        raise ErroDownload(
+            "O ffmpeg não foi encontrado. Instale-o antes de continuar."
         )
-        return 1
 
-    PASTA_DOWNLOADS.mkdir(parents=True, exist_ok=True)
-    modelo_saida = str(PASTA_DOWNLOADS / "%(title)s [%(id)s].%(ext)s")
+    destino = Path(pasta_downloads or PASTA_DOWNLOADS).expanduser().resolve()
+    destino.mkdir(parents=True, exist_ok=True)
+    modelo_saida = str(destino / "%(title)s [%(id)s].%(ext)s")
     comando = [
         sys.executable,
         str(YTDLP_LOCAL),
@@ -78,6 +86,15 @@ def baixar_mp3(link):
         "--",
         link,
     ]
+    return comando, destino
+
+
+def baixar_mp3(link, pasta_downloads=None):
+    try:
+        comando, destino = preparar_download(link, pasta_downloads)
+    except (ErroDownload, OSError) as erro:
+        print(str(erro), file=sys.stderr)
+        return 1
 
     try:
         resultado = subprocess.run(comando, check=False)
@@ -89,7 +106,7 @@ def baixar_mp3(link):
         print("O download não foi concluído.", file=sys.stderr)
         return resultado.returncode
 
-    print(f"MP3 salvo em: {PASTA_DOWNLOADS}")
+    print(f"MP3 salvo em: {destino}")
     return 0
 
 
@@ -106,7 +123,7 @@ def main():
         print("Informe um link válido do YouTube.", file=sys.stderr)
         return 2
 
-    return baixar_mp3(link)
+    return baixar_mp3(link, argumentos.output_dir)
 
 
 if __name__ == "__main__":
