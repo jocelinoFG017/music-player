@@ -53,6 +53,74 @@ class TestListarMusicas(unittest.TestCase):
             ],
         )
 
+    def test_atualiza_biblioteca_adicionando_novas_ao_mpv(self):
+        musicas = ["existente.mp3"]
+
+        with (
+            patch.object(
+                player,
+                "listar_musicas",
+                return_value=[
+                    "existente.mp3",
+                    "nova.flac",
+                    "outra.mp3",
+                ],
+            ),
+            patch.object(
+                player,
+                "executar_comando_mpv",
+                return_value={"error": "success"},
+            ) as executar,
+        ):
+            adicionadas = player.atualizar_biblioteca("/tmp/mpv.sock", musicas)
+
+        self.assertEqual(adicionadas, ["nova.flac", "outra.mp3"])
+        self.assertEqual(
+            musicas,
+            ["existente.mp3", "nova.flac", "outra.mp3"],
+        )
+        self.assertEqual(
+            executar.call_args_list,
+            [
+                unittest.mock.call(
+                    "/tmp/mpv.sock",
+                    [
+                        "loadfile",
+                        str(Path(player.PASTA_MUSICAS) / "nova.flac"),
+                        "append",
+                    ],
+                ),
+                unittest.mock.call(
+                    "/tmp/mpv.sock",
+                    [
+                        "loadfile",
+                        str(Path(player.PASTA_MUSICAS) / "outra.mp3"),
+                        "append",
+                    ],
+                ),
+            ],
+        )
+
+    def test_nao_lista_musica_se_mpv_rejeitar_adicao(self):
+        musicas = ["existente.mp3"]
+
+        with (
+            patch.object(
+                player,
+                "listar_musicas",
+                return_value=["existente.mp3", "nova.mp3"],
+            ),
+            patch.object(
+                player,
+                "executar_comando_mpv",
+                return_value={"error": "failure"},
+            ),
+        ):
+            adicionadas = player.atualizar_biblioteca("/tmp/mpv.sock", musicas)
+
+        self.assertEqual(adicionadas, [])
+        self.assertEqual(musicas, ["existente.mp3"])
+
 
 class TestInicializacao(unittest.TestCase):
     def test_inicia_primeira_musica_sem_pedir_escolha(self):
@@ -148,6 +216,7 @@ class TestListaDuranteReproducao(unittest.TestCase):
         )
 
         self.assertIn("[R] replay:on", controles)
+        self.assertIn("[A] atualizar", controles)
 
 
 class TestReplay(unittest.TestCase):
@@ -242,6 +311,7 @@ class TestComandoMpv(unittest.TestCase):
             "lista": f"{prefixo_pedido}-listar",
             "pagina_anterior": f"{prefixo_pedido}-pagina-anterior",
             "proxima_pagina": f"{prefixo_pedido}-proxima-pagina",
+            "atualizar": f"{prefixo_pedido}-atualizar",
         }
         self.assertEqual(codigo_saida, 0)
         self.assertEqual(comando[0], "mpv")
@@ -268,6 +338,8 @@ class TestComandoMpv(unittest.TestCase):
                 "S cycle shuffle",
                 "r cycle-values loop-file inf no",
                 "R cycle-values loop-file inf no",
+                f'a run "/usr/bin/touch" "{caminhos_pedidos["atualizar"]}"',
+                f'A run "/usr/bin/touch" "{caminhos_pedidos["atualizar"]}"',
                 f'l run "/usr/bin/touch" "{caminhos_pedidos["lista"]}"',
                 f'L run "/usr/bin/touch" "{caminhos_pedidos["lista"]}"',
                 (

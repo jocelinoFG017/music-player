@@ -56,6 +56,7 @@ rodar player stats all
 | `B` | Música anterior |
 | `S` | Ativar ou desativar o modo aleatório |
 | `R` | Repetir a música atual |
+| `A` | Atualizar a biblioteca com novas músicas |
 | `L` | Mostrar ou fechar a lista de músicas |
 | `PgUp` / `PgDn` | Navegar pela lista |
 | `Q` | Sair |

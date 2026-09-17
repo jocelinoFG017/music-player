@@ -90,18 +90,46 @@ def formatar_tempo(segundos):
 
 
 def consultar_mpv(socket_path, propriedade):
+    resposta = executar_comando_mpv(
+        socket_path,
+        ["get_property", propriedade],
+    )
+    return resposta.get("data") if resposta is not None else None
+
+
+def executar_comando_mpv(socket_path, comando):
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conexao:
             conexao.settimeout(0.2)
             conexao.connect(socket_path)
-            comando = json.dumps({
-                "command": ["get_property", propriedade]
-            }).encode() + b"\n"
-            conexao.sendall(comando)
+            mensagem = json.dumps({"command": comando}).encode() + b"\n"
+            conexao.sendall(mensagem)
             resposta = conexao.recv(4096)
-            return json.loads(resposta.decode()).get("data")
+            return json.loads(resposta.decode())
     except (ConnectionError, OSError, json.JSONDecodeError):
         return None
+
+
+def atualizar_biblioteca(socket_path, musicas):
+    encontradas = listar_musicas()
+    conhecidas = set(musicas)
+    adicionadas = []
+
+    for musica in encontradas:
+        if musica in conhecidas:
+            continue
+
+        caminho = os.path.join(PASTA_MUSICAS, musica)
+        resposta = executar_comando_mpv(
+            socket_path,
+            ["loadfile", caminho, "append"],
+        )
+        if resposta is not None and resposta.get("error") == "success":
+            adicionadas.append(musica)
+            conhecidas.add(musica)
+
+    musicas.extend(adicionadas)
+    return adicionadas
 
 
 def largura_visual(texto):
@@ -155,30 +183,41 @@ def formatar_controles(
         aleatorio_curto = "on" if aleatorio else "off"
         replay_curto = "on" if replay else "off"
         texto = (
-            f"N/B S:{aleatorio_curto} R:{replay_curto} ↑/↓ L Q"
+            f"N/B S:{aleatorio_curto} R:{replay_curto} A ↑↓ L Q"
             if lista_visivel
-            else f"P N/B S:{aleatorio_curto} R:{replay_curto} L Q"
+            else f"P N/B S:{aleatorio_curto} R:{replay_curto} A L Q"
+        )
+    elif largura < 89:
+        aleatorio_curto = "on" if aleatorio else "off"
+        replay_curto = "on" if replay else "off"
+        texto = (
+            f"[N/B] [S]:{aleatorio_curto} [R]:{replay_curto} "
+            "[A] atual. [Pg↑/↓] [L] voltar [Q] sair"
+            if lista_visivel
+            else f"[P] [N/B] [S]:{aleatorio_curto} [R]:{replay_curto} "
+            "[A] atual. [L] lista [Q] sair"
         )
     elif largura < 105:
         aleatorio_curto = "on" if aleatorio else "off"
         replay_curto = "on" if replay else "off"
         texto = (
             f"[N/B] [S] aleat:{aleatorio_curto} [R] replay:{replay_curto} "
-            "[Pg↑/↓] pág. [L] voltar [Q] sair"
+            "[A] atualizar [Pg↑/↓] pág. [L] voltar [Q] sair"
             if lista_visivel
             else f"[P] pausa [N/B] faixa [S] aleat:{aleatorio_curto} "
-            f"[R] replay:{replay_curto} [L] biblioteca [Q] sair"
+            f"[R] replay:{replay_curto} [A] atualizar [L] biblioteca [Q] sair"
         )
     elif lista_visivel:
         texto = (
-            f"[N/B] faixa  [S] aleatório: {estado_aleatorio}  "
-            f"[R] replay: {estado_replay}  [PgUp/PgDn] páginas  "
-            "[L] voltar  [Q] sair"
+            f"[N/B] faixa [S] aleat: {estado_aleatorio} "
+            f"[R] replay: {estado_replay} [A] atualizar "
+            "[PgUp/PgDn] pág. [L] voltar [Q] sair"
         )
     else:
         texto = (
-            f"[P] pausa  [N/B] faixa  [S] aleatório: {estado_aleatorio}  "
-            f"[R] replay: {estado_replay}  [L] biblioteca  [Q] sair"
+            f"[P] pausa [N/B] faixa [S] aleat: {estado_aleatorio} "
+            f"[R] replay: {estado_replay} [A] atualizar "
+            "[L] biblioteca [Q] sair"
         )
     return ajustar_texto(texto, largura).rstrip()
 
@@ -356,6 +395,17 @@ def _executar_interface_reproducao(
         proxima_pagina = consumir_pedido(
             caminhos_pedidos["proxima_pagina"],
         )
+        pediu_atualizacao = consumir_pedido(
+            caminhos_pedidos["atualizar"],
+        )
+        biblioteca_atualizada = False
+        if pediu_atualizacao:
+            try:
+                biblioteca_atualizada = bool(
+                    atualizar_biblioteca(socket_path, musicas),
+                )
+            except OSError:
+                biblioteca_atualizada = False
 
         if alternou_lista:
             lista_visivel = not lista_visivel
@@ -386,6 +436,7 @@ def _executar_interface_reproducao(
                 or pagina_anterior
                 or proxima_pagina
                 or mudou_dimensoes
+                or pediu_atualizacao
             ):
                 limpar_tela()
                 pagina_lista = exibir_lista_reproducao(
@@ -404,7 +455,10 @@ def _executar_interface_reproducao(
 
         renderizou_painel = False
         if posicao is not None and (
-            mudou_musica or alternou_lista or mudou_dimensoes
+            mudou_musica
+            or alternou_lista
+            or mudou_dimensoes
+            or biblioteca_atualizada
         ):
             indice = int(posicao)
             nome = os.path.splitext(musicas[indice])[0]
@@ -499,6 +553,7 @@ def tocar_musicas(musicas, indice_inicial):
         "lista": f"{prefixo_controle}-listar",
         "pagina_anterior": f"{prefixo_controle}-pagina-anterior",
         "proxima_pagina": f"{prefixo_controle}-proxima-pagina",
+        "atualizar": f"{prefixo_controle}-atualizar",
     }
     comando_touch = shutil.which("touch") or "/usr/bin/touch"
     for caminho in caminhos_pedidos.values():
@@ -510,6 +565,8 @@ def tocar_musicas(musicas, indice_inicial):
         "S cycle shuffle",
         "r cycle-values loop-file inf no",
         "R cycle-values loop-file inf no",
+        f'a run "{comando_touch}" "{caminhos_pedidos["atualizar"]}"',
+        f'A run "{comando_touch}" "{caminhos_pedidos["atualizar"]}"',
         f'l run "{comando_touch}" "{caminhos_pedidos["lista"]}"',
         f'L run "{comando_touch}" "{caminhos_pedidos["lista"]}"',
         (
