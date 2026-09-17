@@ -26,23 +26,26 @@ Também são encontradas músicas organizadas em subpastas de `music`.
 
 ## 🖥️ Rodar o player gráfico
 
-O GUI é um MVP independente com biblioteca, reprodução, pausa e avanço de
-faixa. Ele usa a mesma pasta de músicas e o mesmo banco de estatísticas do CLI:
+O GUI é um MVP independente feito com Qt/PySide6, com biblioteca, reprodução,
+pausa e avanço de faixa. Ele usa a mesma pasta de músicas e o mesmo banco de
+estatísticas do CLI. Na primeira vez, crie o ambiente e instale o projeto:
 
 ```bash
-python3 gui.py
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e .
 ```
 
-Quando o projeto estiver instalado como pacote, também pode ser iniciado com:
+Depois, abra o GUI:
 
 ```bash
 music-player-gui
 ```
 
-No Ubuntu, instale o suporte do Tkinter caso ele ainda não esteja disponível:
+Também é possível executá-lo diretamente dentro do ambiente virtual:
 
 ```bash
-sudo apt install python3-tk
+python3 gui.py
 ```
 
 ### Estatísticas
