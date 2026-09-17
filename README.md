@@ -114,6 +114,9 @@ mova-o para a biblioteca configurada.
 Durante o download, o ID do vídeo é mantido entre colchetes para evitar
 conflitos. Depois da conversão, ele é removido automaticamente. Se já existir
 um arquivo com o mesmo nome, o novo recebe um número, como `Música (2).mp3`.
+Etiquetas finais conhecidas, como `[tradução]`, `[4K HD]` e
+`[OFFICIAL VIDEO]`, também são removidas; outros textos entre colchetes são
+preservados.
 
 Use o downloader apenas para conteúdos que você tem autorização para baixar.
 

@@ -49,7 +49,7 @@ class TestComandoYtDlp(unittest.TestCase):
             downloads = pasta / "downloads"
             ytdlp.touch()
             downloads.mkdir()
-            arquivo_baixado = downloads / "Faixa [video].mp3"
+            arquivo_baixado = downloads / "Faixa [abcdefghijk].mp3"
             arquivo_baixado.touch()
             resultado = subprocess.CompletedProcess(
                 [],
@@ -116,7 +116,7 @@ class TestComandoYtDlp(unittest.TestCase):
         with tempfile.TemporaryDirectory() as diretorio:
             pasta = Path(diretorio)
             (pasta / "Faixa.mp3").touch()
-            baixado = pasta / "Faixa [video].mp3"
+            baixado = pasta / "Faixa [abcdefghijk].mp3"
             baixado.touch()
 
             caminho_final = downloader.finalizar_download(
@@ -125,6 +125,18 @@ class TestComandoYtDlp(unittest.TestCase):
             )
 
         self.assertEqual(caminho_final.name, "Faixa (2).mp3")
+
+    def test_remove_id_e_etiquetas_promocionais_do_final(self):
+        casos = {
+            "Faixa [OFFICIAL VIDEO] [abcdefghijk]": "Faixa",
+            "Faixa [4K HD] [abcdefghijk]": "Faixa",
+            "Faixa [tradução] [abcdefghijk]": "Faixa",
+            "Faixa [Parte 1] [abcdefghijk]": "Faixa [Parte 1]",
+        }
+
+        for titulo, esperado in casos.items():
+            with self.subTest(titulo=titulo):
+                self.assertEqual(downloader.limpar_titulo(titulo), esperado)
 
 
 if __name__ == "__main__":

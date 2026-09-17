@@ -3,6 +3,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -13,7 +14,30 @@ BASE_DIR = Path(__file__).resolve().parent
 PASTA_DOWNLOADS = pasta_downloads_configurada() or BASE_DIR / "download-direto"
 YTDLP_LOCAL = BASE_DIR / ".tools" / "yt-dlp"
 MARCADOR_ARQUIVO = "__MUSIC_PLAYER_FILE__"
-PADRAO_ID_FINAL = re.compile(r"^(?P<titulo>.+) \[[^\[\]]+\]$")
+PADRAO_ID_FINAL = re.compile(
+    r"^(?P<titulo>.+) \[[A-Za-z0-9_-]{11}\]$"
+)
+PADRAO_ETIQUETA_FINAL = re.compile(r"^(?P<titulo>.*?)\s*\[(?P<etiqueta>[^\[\]]+)\]\s*$")
+ETIQUETAS_DESCARTAVEIS = {
+    "4k",
+    "4k hd",
+    "audio oficial",
+    "clipe oficial",
+    "full hd",
+    "hd",
+    "legenda",
+    "legendado",
+    "lyric video",
+    "lyrics",
+    "music video",
+    "official audio",
+    "official lyric video",
+    "official music video",
+    "official video",
+    "traducao",
+    "traducao legendado",
+    "video oficial",
+}
 
 
 class ErroDownload(Exception):
@@ -107,14 +131,39 @@ def _proximo_nome_disponivel(caminho):
         numero += 1
 
 
+def _normalizar_etiqueta(etiqueta):
+    normalizada = unicodedata.normalize("NFKD", etiqueta)
+    normalizada = "".join(
+        caractere
+        for caractere in normalizada
+        if not unicodedata.combining(caractere)
+    )
+    normalizada = re.sub(r"[^a-z0-9]+", " ", normalizada.casefold())
+    return " ".join(normalizada.split())
+
+
+def limpar_titulo(titulo):
+    correspondencia_id = PADRAO_ID_FINAL.match(titulo)
+    if correspondencia_id is not None:
+        titulo = correspondencia_id.group("titulo")
+
+    while True:
+        correspondencia = PADRAO_ETIQUETA_FINAL.match(titulo)
+        if correspondencia is None:
+            break
+        etiqueta = _normalizar_etiqueta(correspondencia.group("etiqueta"))
+        if etiqueta not in ETIQUETAS_DESCARTAVEIS:
+            break
+        titulo = correspondencia.group("titulo").rstrip()
+    return titulo
+
+
 def remover_id_do_nome(caminho):
     caminho = Path(caminho)
-    correspondencia = PADRAO_ID_FINAL.match(caminho.stem)
-    if correspondencia is None:
+    titulo_limpo = limpar_titulo(caminho.stem)
+    if titulo_limpo == caminho.stem:
         return caminho
-    destino = caminho.with_name(
-        f"{correspondencia.group('titulo')}{caminho.suffix}"
-    )
+    destino = caminho.with_name(f"{titulo_limpo}{caminho.suffix}")
     destino = _proximo_nome_disponivel(destino)
     caminho.rename(destino)
     return destino
