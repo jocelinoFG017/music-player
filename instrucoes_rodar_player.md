@@ -6,7 +6,7 @@
 
 ```bash
 sudo apt update
-sudo apt install python3 mpv ffmpeg
+sudo apt install python3 python3-tk mpv ffmpeg
 ```
 
 ### 2. Adicione suas músicas
@@ -35,6 +35,15 @@ python3 player.py
 ```
 
 Pronto. O player começa pela primeira música da pasta `music`.
+
+### Player gráfico
+
+O player gráfico é iniciado separadamente e compartilha músicas e histórico com
+o player de terminal:
+
+```bash
+python3 gui.py
+```
 
 <details>
 <summary>Configurar o atalho em outro Ubuntu</summary>

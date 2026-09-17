@@ -3,7 +3,8 @@
 [![Qualidade](https://github.com/jocelinoFG017/music-player/actions/workflows/ci.yml/badge.svg)](https://github.com/jocelinoFG017/music-player/actions/workflows/ci.yml)
 
 Um player de músicas simples para o terminal, com uma ferramenta adicional para
-baixar áudios do YouTube.
+baixar áudios do YouTube. O projeto também possui um player gráfico independente
+que compartilha a biblioteca e o histórico com o terminal.
 
 ## ▶️ Rodar o player
 
@@ -23,12 +24,33 @@ python3 player.py
 Formatos aceitos: MP3, WAV, OGG, FLAC e M4A.
 Também são encontradas músicas organizadas em subpastas de `music`.
 
+## 🖥️ Rodar o player gráfico
+
+O GUI é um MVP independente com biblioteca, reprodução, pausa e avanço de
+faixa. Ele usa a mesma pasta de músicas e o mesmo banco de estatísticas do CLI:
+
+```bash
+python3 gui.py
+```
+
+Quando o projeto estiver instalado como pacote, também pode ser iniciado com:
+
+```bash
+music-player-gui
+```
+
+No Ubuntu, instale o suporte do Tkinter caso ele ainda não esteja disponível:
+
+```bash
+sudo apt install python3-tk
+```
+
 ### Estatísticas
 
 O player registra localmente o tempo efetivamente ouvido. Pausas não entram no
 tempo e uma faixa só conta como reprodução depois de 50% da duração ou 4
-minutos, o que ocorrer primeiro. Os dados ficam em `stats.json`, fora da pasta
-de músicas.
+minutos, o que ocorrer primeiro. CLI e GUI gravam no mesmo banco SQLite, por
+padrão em `~/.local/share/music-player/stats.db`.
 
 ```bash
 rodar player stats
@@ -40,6 +62,10 @@ rodar player stats all
 ```
 
 `all-time` também é aceito como sinônimo de `all`.
+
+Na primeira execução, o histórico existente em `stats.json` é importado
+automaticamente e preservado em um backup. Veja
+[MIGRACAO_SQLITE.md](MIGRACAO_SQLITE.md) para detalhes e opções de configuração.
 
 ### Imagens
 

@@ -27,3 +27,7 @@ download-direto/*
 stats.json
 stats.json.lock
 .stats-*.tmp
+stats.db
+stats.db-shm
+stats.db-wal
+stats-v1.backup.json

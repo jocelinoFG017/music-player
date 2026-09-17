@@ -5,15 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "music-player-cli"
 version = "1.0.0"
-description = "Player e downloader de musicas para linha de comando."
+description = "Players de música para terminal e interface gráfica."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
 music-player = "player:cli"
+music-player-gui = "gui:cli"
 music-download = "downloader:main"
 music-update = "atualizar_ytdlp:main"
 
 [tool.setuptools]
-py-modules = ["player", "stats", "downloader", "atualizar_ytdlp"]
+py-modules = ["player", "gui", "stats", "downloader", "atualizar_ytdlp"]
+packages = ["music_player_core"]
