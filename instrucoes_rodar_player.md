@@ -6,7 +6,7 @@
 
 ```bash
 sudo apt update
-sudo apt install python3 mpv ffmpeg
+sudo apt install python3 python3-venv mpv ffmpeg
 ```
 
 ### 2. Adicione suas músicas
@@ -35,6 +35,21 @@ python3 player.py
 ```
 
 Pronto. O player começa pela primeira música da pasta `music`.
+
+### Player gráfico
+
+O player gráfico é iniciado separadamente e compartilha músicas e histórico com
+o player de terminal. Prepare o ambiente na primeira execução:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e .
+music-player-gui
+```
+
+O GUI possui uma aba **Downloader**. Na primeira utilização, escolha onde os
+MP3 serão salvos; essa pasta será lembrada nas próximas execuções.
 
 <details>
 <summary>Configurar o atalho em outro Ubuntu</summary>

@@ -9,12 +9,17 @@ import time
 import unicodedata
 
 import stats as estatisticas
+from music_player_core.library import (
+    EXTENSOES_AUDIO,
+    listar_musicas as listar_biblioteca,
+    pasta_musicas,
+)
 
-EXTENSOES = (".mp3", ".wav", ".ogg", ".flac", ".m4a")
+EXTENSOES = EXTENSOES_AUDIO
 LARGURA_MAXIMA = 110
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PASTA_MUSICAS = os.path.join(BASE_DIR, "music")
+PASTA_MUSICAS = str(pasta_musicas())
 
 SCRIPT_NAVEGACAO = r'''
 local mp = require "mp"
@@ -70,13 +75,7 @@ def limpar_tela():
 
 
 def listar_musicas():
-    musicas = []
-    for raiz, _, arquivos in os.walk(PASTA_MUSICAS):
-        for arquivo in arquivos:
-            if arquivo.lower().endswith(EXTENSOES):
-                caminho = os.path.join(raiz, arquivo)
-                musicas.append(os.path.relpath(caminho, PASTA_MUSICAS))
-    return sorted(musicas, key=str.casefold)
+    return listar_biblioteca(PASTA_MUSICAS)
 
 
 def formatar_tempo(segundos):
